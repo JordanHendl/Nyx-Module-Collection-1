@@ -1,0 +1,24 @@
+FIND_PACKAGE( Iris  REQUIRED )
+FIND_PACKAGE( Nyx   REQUIRED )
+
+SET( NYX_MODULE_HEADERS 
+      Vulkan.h
+   )
+
+SET( NYX_MODULE_SOURCES
+      Vulkan.cpp
+   )
+
+SET( NYX_MODULE_LIBRARIES
+     iris_module
+     iris_bus
+     nyx_vkg
+   )
+
+ADD_LIBRARY          ( Vulkan SHARED ${NYX_MODULE_SOURCES} ${NYX_MODULE_HEADERS} )
+TARGET_LINK_LIBRARIES( Vulkan PUBLIC ${NYX_MODULE_LIBRARIES}                     )
+
+BUILD_TEST( TARGET Vulkan 
+            DEPENDS ${NYX_MODULE_LIBRARIES} )
+
+INSTALL( TARGETS Vulkan DESTINATION ${LIB_DIR} )
