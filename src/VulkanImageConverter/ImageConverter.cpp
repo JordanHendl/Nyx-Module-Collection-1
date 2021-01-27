@@ -25,13 +25,8 @@
 #include "ImageConverter.h"
 #include <data/Bus.h>
 #include <library/Array.h>
-#include <vkg/Device.h>
-#include <vkg/Buffer.h>
-#include <vkg/Synchronization.h>
+#include <library/Image.h>
 #include <vkg/Vulkan.h>
-#include <vkg/Queue.h>
-#include <vkg/Image.h>
-#include <vkg/CommandBuffer.h>
 #include <template/List.h>
 #include <string>
 #include <vulkan/vulkan.hpp>
@@ -42,22 +37,26 @@ namespace nyx
 {
   namespace vkg
   {
+    using Impl   = nyx::vkg::Vulkan        ;
+    constexpr auto Format = nyx::ImageFormat::RGBA8 ;
+    
     struct ImageConverterData
     {
-      nyx::List<nyx::vkg::CommandBuffer>   cmds           ;
-      nyx::List<nyx::vkg::Synchronization> syncs          ;
-      nyx::vkg::Queue                      queue          ;
-      nyx::vkg::Image                      converted_img  ;
-      nyx::vkg::VkArray<unsigned char>     staging_buffer ;
-      nyx::vkg::Synchronization            current        ;
-      iris::Bus                            bus            ;
-      nyx::vkg::Device                     device         ;
-      std::string                          name           ;
-      const unsigned char*                 host_bytes     ;
-      unsigned                             width          ;
-      unsigned                             height         ;
-      unsigned                             channels       ;
-      unsigned                             staging_size   ;
+      
+      nyx::List<Impl::CommandRecord>   cmds           ;
+      nyx::List<Impl::Synchronization> syncs          ;
+      Impl::Queue                      queue          ;
+      Impl::Image<vkg::Format>         converted_img  ;
+      Impl::Array<unsigned char>       staging_buffer ;
+      Impl::Synchronization            current        ;
+      Impl::Device                     device         ;
+      iris::Bus                        bus            ;
+      std::string                      name           ;
+      const unsigned char*             host_bytes     ;
+      unsigned                         width          ;
+      unsigned                         height         ;
+      unsigned                         channels       ;
+      unsigned                         staging_size   ;
 
       /** Default constructor.
        */
@@ -171,7 +170,7 @@ namespace nyx
       if( this->device.initialized() )
       {
         this->staging_buffer.reset() ;
-        this->staging_buffer.initialize( this->device, byte_size, true, vk::BufferUsageFlagBits::eTransferSrc ) ;
+        this->staging_buffer.initialize( this->device, byte_size, true, nyx::ArrayFlags::TransferSrc ) ;
       }
     }
     
@@ -201,7 +200,7 @@ namespace nyx
       {
         this->device = device ;
         this->staging_buffer.reset() ;
-        this->staging_buffer.initialize( this->device, this->staging_size, true, vk::BufferUsageFlagBits::eTransferSrc ) ;
+        this->staging_buffer.initialize( this->device, this->staging_size, true, nyx::ArrayFlags::TransferSrc ) ;
         this->queue = this->device.transferQueue()   ;
         this->cmds .initialize( 20, this->queue, 1 ) ;
         this->syncs.initialize( 20, device, 0      ) ;
@@ -273,14 +272,14 @@ namespace nyx
       img_size = data().width * data().height * data().channels ;
       
       // Resize image to desired dimensions.
-      data().converted_img.resize( data().width, data().height ) ;
+//      data().converted_img.resize( data().width, data().height ) ;
       
       // Record the needed command.
       data().cmds.current().record() ;
       if( data().staging_buffer.size() > img_size )
       {
         data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
-        data().converted_img.copy( data().staging_buffer.buffer(), data().cmds.current().buffer( 0 ) ) ;
+        data().converted_img.copy( data().staging_buffer, data().cmds ) ;
       }
       data().cmds.current().stop() ;
       

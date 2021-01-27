@@ -18,13 +18,6 @@
 #include "Window.h"
 #include <template/List.h>
 #include <vkg/Vulkan.h>
-#include <vkg/Synchronization.h>
-#include <vkg/CommandBuffer.h>
-#include <vkg/Swapchain.h>
-#include <vkg/RenderPass.h>
-#include <vkg/Device.h>
-#include <vkg/Image.h>
-#include <vkg/Queue.h>
 #include <library/Window.h>
 #include <data/Bus.h>
 #include <vector>
@@ -38,25 +31,25 @@ namespace nyx
 {
   namespace vkg
   {
-    using IMPL = nyx::vkg::Vulkan ;
+    using Impl = nyx::vkg::Vulkan ;
     
     struct VkWindowData
     {
-      nyx::List<nyx::vkg::Synchronization> syncs       ; ///< The synchronization objects to use for this object's synchronization.
-      nyx::List<nyx::vkg::CommandBuffer  > cmds        ; ///< The command buffers to record commands into.
-      iris::Bus                            bus         ; ///< The bus to communicate over.
-      nyx::vkg::Device                     device      ; ///< The device to use for all vulkan calls.
-      vk::SurfaceKHR                       vk_surface  ; ///< The surface to use for generating a device.
-      nyx::Window<IMPL>                    window      ; ///< The implementation window object.
-      nyx::vkg::Queue                      queue       ; ///< The present queue to use for swapchain creation.
-      nyx::vkg::Swapchain                  swapchain   ; ///< The swapchain object to manage rendering to this window.
-      nyx::vkg::RenderPass                 pass        ; ///< The render pass object to use for handle drawing to the window.
-      std::string                          title       ; ///< The string title of this window.
-      unsigned                             device_id   ; ///< The id of the device to use for this object's GPU.
-      unsigned                             width       ; ///< The width of this window in pixels.
-      unsigned                             height      ; ///< The height of this window in pixels.
-      std::string                          module_name ; ///< The name of this module.
-      std::mutex                           mutex       ; ///< Mutex to ensure images and synchronizations arent set while this module is processing.
+      nyx::List<Impl::Synchronization> syncs       ; ///< The synchronization objects to use for this object's synchronization.
+      nyx::List<Impl::CommandRecord  > cmds        ; ///< The command buffers to record commands into.
+      iris::Bus                        bus         ; ///< The bus to communicate over.
+      Impl::Device                     device      ; ///< The device to use for all vulkan calls.
+      vk::SurfaceKHR                   vk_surface  ; ///< The surface to use for generating a device.
+      nyx::Window<Impl>                window      ; ///< The implementation window object.
+      Impl::Queue                      queue       ; ///< The present queue to use for swapchain creation.
+      Impl::Swapchain                  swapchain   ; ///< The swapchain object to manage rendering to this window.
+      Impl::RenderPass                 pass        ; ///< The render pass object to use for handle drawing to the window.
+      std::string                      title       ; ///< The string title of this window.
+      unsigned                         device_id   ; ///< The id of the device to use for this object's GPU.
+      unsigned                         width       ; ///< The width of this window in pixels.
+      unsigned                         height      ; ///< The height of this window in pixels.
+      std::string                      module_name ; ///< The name of this module.
+      std::mutex                       mutex       ; ///< Mutex to ensure images and synchronizations arent set while this module is processing.
 
       /** Default constructor.
        */
@@ -167,7 +160,7 @@ namespace nyx
     {
       this->mutex.lock() ;
       auto img = this->swapchain.image( this->swapchain.current() ) ;
-      img.copy( image, this->cmds.current().buffer() ) ;
+      img.copy( image, this->cmds ) ;
       // maybe have to wait on fence here?
 
       this->cmds.advance() ;
