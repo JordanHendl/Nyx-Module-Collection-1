@@ -16,8 +16,8 @@
  */
 
 #include "ImageConverter.h"
-#include <Athena/Manager.h>
-#include <data/Bus.h>
+#include <athena/Manager.h>
+#include <iris/data/Bus.h>
 static nyx::vkg::ImageConverter converter ;
 static iris::Bus                bus       ;
 static athena::Manager          manager   ;

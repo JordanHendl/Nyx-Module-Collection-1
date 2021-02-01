@@ -23,11 +23,12 @@
  */
 
 #include "ImageConverter.h"
-#include <data/Bus.h>
-#include <library/Array.h>
-#include <library/Image.h>
-#include <vkg/Vulkan.h>
-#include <template/List.h>
+#include <iris/data/Bus.h>
+#include <iris/log/Log.h>
+#include <nyx/library/Array.h>
+#include <nyx/library/Image.h>
+#include <nyx/vkg/Vulkan.h>
+#include <nyx/template/List.h>
 #include <string>
 #include <vulkan/vulkan.hpp>
 
@@ -37,16 +38,15 @@ namespace nyx
 {
   namespace vkg
   {
-    using Impl   = nyx::vkg::Vulkan        ;
+    using          Impl   = nyx::vkg::Vulkan        ;
     constexpr auto Format = nyx::ImageFormat::RGBA8 ;
     
     struct ImageConverterData
     {
-      
       nyx::List<Impl::CommandRecord>   cmds           ;
       nyx::List<Impl::Synchronization> syncs          ;
       Impl::Queue                      queue          ;
-      Impl::Image<vkg::Format>         converted_img  ;
+      Impl::Image<Format>              converted_img  ;
       Impl::Array<unsigned char>       staging_buffer ;
       Impl::Synchronization            current        ;
       Impl::Device                     device         ;
@@ -70,7 +70,7 @@ namespace nyx
       /** Method to retrieve a const image from this object.
        * @return The const reference to this object's image object.
        */
-      const nyx::vkg::Image& image() ;
+      const nyx::RGBAImage<Impl>& image() ;
       
       /** Method to set the output name to associate with this module's command buffers.
        * @param name The name to associate with this module's output.
@@ -135,13 +135,14 @@ namespace nyx
     
     ImageConverterData::ImageConverterData()
     {
-      this->width      = 0       ;
-      this->height     = 0       ;
-      this->host_bytes = nullptr ;
-      this->name       = ""      ;
+      this->width        = 0                                         ;
+      this->height       = 0                                         ;
+      this->host_bytes   = nullptr                                   ;
+      this->name         = ""                                        ;
+      this->staging_size = sizeof( unsigned char ) * 1920 * 1080 * 4 ;
     }
     
-    const nyx::vkg::Image& ImageConverterData::image()
+    const nyx::RGBAImage<Impl>& ImageConverterData::image()
     {
       return this->converted_img ;
     }
@@ -196,7 +197,7 @@ namespace nyx
 
     void ImageConverterData::setDevice( unsigned id, const nyx::vkg::Device& device )
     {
-      if( !this->device.initialized() && id == 0 )
+      if( !this->device.initialized() && id == 0  && device.initialized() )
       {
         this->device = device ;
         this->staging_buffer.reset() ;
@@ -245,13 +246,14 @@ namespace nyx
     void ImageConverter::subscribe( unsigned id )
     {
       data().bus.setChannel( id ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setDevice                   , iris::OPTIONAL,               "vkg_device"       ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputWidthName           , iris::OPTIONAL, this->name(), "::input_width"    ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputHeightName          , iris::OPTIONAL, this->name(), "::input_height"   ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputChannelName         , iris::OPTIONAL, this->name(), "::input_channels" ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputBytesName           , iris::OPTIONAL, this->name(), "::input_bytes"    ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setOutputName               , iris::OPTIONAL, this->name(), "::output"         ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setOutputSynchronizationName, iris::OPTIONAL, this->name(), "::sync_output"    ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setDevice                   , iris::OPTIONAL,               "vkg_device"            ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setInputWidthName           , iris::OPTIONAL, this->name(), "::input_width_name"    ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setInputHeightName          , iris::OPTIONAL, this->name(), "::input_height_name"   ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setInputChannelName         , iris::OPTIONAL, this->name(), "::input_channels_name" ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setInputBytesName           , iris::OPTIONAL, this->name(), "::input_bytes_name"    ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setStagingBufferSize        , iris::OPTIONAL, this->name(), "::staging_buffer_size" ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setOutputName               , iris::OPTIONAL, this->name(), "::output"              ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setOutputSynchronizationName, iris::OPTIONAL, this->name(), "::sync_output"         ) ;
     }
 
     void ImageConverter::shutdown()
@@ -267,28 +269,37 @@ namespace nyx
     {
       unsigned img_size ;
       
-      data().bus.wait() ;
+       data().bus.wait() ;
       
-      img_size = data().width * data().height * data().channels ;
-      
-      // Resize image to desired dimensions.
-//      data().converted_img.resize( data().width, data().height ) ;
-      
-      // Record the needed command.
-      data().cmds.current().record() ;
-      if( data().staging_buffer.size() > img_size )
+      if( data().device.initialized() && data().width != 0 && data().height != 0 && data().channels != 0 )
       {
-        data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
-        data().converted_img.copy( data().staging_buffer, data().cmds ) ;
+        img_size = data().width * data().height * data().channels ;
+        
+        iris::log::Log::output( this->name(), " copying image." ) ;
+        if( !data().converted_img.initialized() )
+        {
+          data().converted_img.initialize( data().device, data().width, data().height, 1 ) ;
+        }
+        
+        // Resize image to desired dimensions.
+        data().converted_img.resize( data().width, data().height ) ;
+        
+        data().syncs.current().waitOnFences() ;
+
+        // Record the needed command.
+        data().cmds.current().record() ;
+        if( data().staging_buffer.size() > img_size )
+        {
+          data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
+          data().converted_img.copy( data().staging_buffer, data().cmds ) ;
+        }
+        data().cmds.current().stop() ;
+        
+        // Submit and advance to the next command buffer.
+        data().queue.submit( data().cmds, data().syncs ) ;
+        data().cmds.advance() ;
+        data().bus.emit() ;
       }
-      data().cmds.current().stop() ;
-      
-      // Submit and advance to the next command buffer.
-      data().queue.submit( data().cmds, data().syncs ) ;
-      data().cmds.advance() ;
-      
-      // Send synchronization along the way.
-      data().bus.emit() ;
     }
 
     ImageConverterData& ImageConverter::data()

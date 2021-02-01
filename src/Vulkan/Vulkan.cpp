@@ -16,13 +16,13 @@
  */
 
 #include "Vulkan.h"
-#include <vkg/Instance.h>
-#include <vkg/CommandBuffer.h>
-#include <vkg/Queue.h>
-#include <template/List.h>
-#include <vkg/Vulkan.h>
-#include <vkg/Device.h>
-#include <data/Bus.h>
+#include <nyx/vkg/Instance.h>
+#include <nyx/vkg/CommandBuffer.h>
+#include <nyx/vkg/Queue.h>
+#include <nyx/template/List.h>
+#include <nyx/vkg/Vulkan.h>
+#include <nyx/vkg/Device.h>
+#include <iris/data/Bus.h>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 #include <map>
@@ -35,18 +35,20 @@ namespace nyx
   {
     struct VkModuleData
     {
-      using Devices = std::vector<nyx::vkg::Device>                          ;
-      using CmdMap  = std::map<unsigned, nyx::List<nyx::vkg::CommandBuffer>> ;
+      using Devices          = std::vector<nyx::vkg::Device>                          ;
+      using CmdMap           = std::map<unsigned, nyx::List<nyx::vkg::CommandBuffer>> ;
+      using ValidationLayers = std::vector<std::string>                               ;
 
       nyx::List<nyx::vkg::CommandBuffer> buffers         ; ///< The command buffers to use for submitting to the graphics queue.
       CmdMap                             buffer_map      ; ///< The command buffer map to ensure we submit each buffer onto it's rightful queue.
       iris::Bus                          bus             ; ///< The bus to communicate over.
-      nyx::vkg::Instance                 kgl_instance    ; ///< The kgl instance to sent.
+      nyx::vkg::Instance                 iris_instance    ; ///< The iris instance to sent.
       Devices                            devices         ; ///< The vector of devices generated & found.
       ::vk::SurfaceKHR                   surface         ; ///< The surface to use for generating a device.
       std::string                        name            ; ///< The name of the module.
       bool                               expects_surface ; ///< Whether or not this module is expecting a vulkan surface, and should not build virtual devices without it.
       std::mutex                         mutex           ; ///< Mutex to help make sure command buffers arent being set while this object is processing them.
+      ValidationLayers                   layers          ; ///< The list of validation layers to use when creating the instance.
 
       /** Default constructor.
        */
@@ -61,6 +63,11 @@ namespace nyx
        * @param name The name to associate with the secondary command buffer input.
        */
       void setCmdBufferInputName( const char* name ) ;
+      
+      /** Method to add a validation layer to be added to this instance.
+       * @param validation_layer The test name of the layer to add.
+       */
+      void addValidationLayer( unsigned idx, const char* validation_layer ) ;
 
       /** Method to set the surface input name.
        * @param input The name of input to recieve for a vulkan surface.
@@ -83,12 +90,12 @@ namespace nyx
       const vk::Instance& vulkan_instance() ;
       
       /** Method to retrieve const reference to the device of this object;
-       * @return Const referecnce to a kgl device from this object.
+       * @return Const referecnce to a iris device from this object.
        */
       const nyx::vkg::Device& device( unsigned index ) ;
       
       /** Method to retrieve const reference to the device of this object;
-       * @return Const referecnce to a kgl device from this object.
+       * @return Const referecnce to a iris device from this object.
        */
       const vk::Device& vulkan_device( unsigned index ) ;
     };
@@ -98,13 +105,24 @@ namespace nyx
       
     }
 
+    void VkModuleData::setCmdBufferInputName( const char* name )
+    {
+      name = name ;
+    }
+    
+    void VkModuleData::addValidationLayer( unsigned idx, const char* validation_layer )
+    {
+      idx = idx ;
+      this->layers.push_back( validation_layer ) ;
+    }
+
     void VkModuleData::setSurfaceInput( const char* input )
     {
       this->expects_surface = true ;
-      this->bus.enroll( this, &VkModuleData::setSurface, this->name.c_str(), "::", input ) ;
+      this->bus.enroll( this, &VkModuleData::setSurface, iris::REQUIRED, input ) ;
     }
     
-    void VkModuleData::setSurface( const ::vk::SurfaceKHR& surface )
+    void VkModuleData::setSurface( const vk::SurfaceKHR& surface )
     {
       unsigned index ;
       
@@ -113,10 +131,11 @@ namespace nyx
       if( this->devices.empty() )
       {
         index = 0 ;
-        this->devices.resize( this->kgl_instance.numDevices() ) ;
+        this->devices.resize( this->iris_instance.numDevices() ) ;
         for( auto& device : this->devices )
         {
-          device.initialize( this->kgl_instance.device( index ), surface ) ;
+          device.addExtension( "VK_KHR_swapchain" ) ;
+          device.initialize( this->iris_instance.device( index ), surface ) ;
 
           this->bus.emit( index++ ) ;
         }
@@ -125,12 +144,12 @@ namespace nyx
 
     const nyx::vkg::Instance& VkModuleData::instance()
     {
-      return this->kgl_instance ;
+      return this->iris_instance ;
     }
     
     const vk::Instance& VkModuleData::vulkan_instance()
     {
-      return this->kgl_instance.instance() ;
+      return this->iris_instance.instance() ;
     }
     
     const nyx::vkg::Device& VkModuleData::device( unsigned index )
@@ -162,31 +181,49 @@ namespace nyx
     void VkModule::initialize()
     {
       unsigned index ;
+
+      if( data().expects_surface )
+      {
+        data().iris_instance.addExtension( "VK_KHR_surface"                                 ) ;
+        data().iris_instance.addExtension( vkg::Vulkan::platformSurfaceInstanceExtensions() ) ;
+      }
+
+      for( auto& layer : data().layers )
+      {
+        data().iris_instance.addValidationLayer( layer.c_str() ) ;
+      }
+      
+      data().iris_instance.initialize() ;
+      nyx::vkg::Vulkan::initialize( data().iris_instance ) ;
+      
+      // If we dont expect an instance.
       if( data().devices.empty() && !data().expects_surface )
       {
         index = 0 ;
-        data().devices.resize( data().kgl_instance.numDevices() ) ;
+        data().devices.resize( data().iris_instance.numDevices() ) ;
         for( auto& device : data().devices )
         {
-          device.initialize( data().kgl_instance.device( index ) ) ;
+          device.initialize( data().iris_instance.device( index ) ) ;
 
           data().bus.emit( index++ ) ;
         }
       }
+
+      data().bus.emit() ;
     }
 
     void VkModule::subscribe( unsigned id )
     {
       data().bus.setChannel( id ) ;
       data().name = this->name() ;
-      data().kgl_instance.initialize() ;
-      nyx::vkg::Vulkan::initialize( data().kgl_instance ) ;
-      data().bus.publish( this->module_data, &VkModuleData::instance       , "vkg_instance" ) ;
-      data().bus.publish( this->module_data, &VkModuleData::device         , "vkg_device"   ) ;
-      data().bus.publish( this->module_data, &VkModuleData::vulkan_instance, "raw_instance" ) ;
-      data().bus.publish( this->module_data, &VkModuleData::vulkan_device  , "raw_device"   ) ;
+      data().bus.publish( this->module_data, &VkModuleData::instance         , "vkg_instance" ) ;
+      data().bus.publish( this->module_data, &VkModuleData::device           , "vkg_device"   ) ;
+      data().bus.publish( this->module_data, &VkModuleData::vulkan_instance  , "raw_instance" ) ;
+      data().bus.publish( this->module_data, &VkModuleData::vulkan_device    , "raw_device"   ) ;
+      data().bus.enroll( this->module_data, &VkModuleData::setSurfaceInput   , iris::OPTIONAL, this->name(), "::surface_input_name" ) ;
+      data().bus.enroll( this->module_data, &VkModuleData::addValidationLayer, iris::OPTIONAL, this->name(), "::validation_layers"  ) ;
       
-      data().bus.enroll( this->module_data, &VkModuleData::setSurfaceInput, iris::OPTIONAL, this->name(), "::input" ) ;
+      data().bus.enroll( this->module_data, &VkModuleData::setCmdBufferInputName, iris::REQUIRED, this->name(), "::asldkjalskdkasjd" ) ;
     }
 
     void VkModule::shutdown()
@@ -198,7 +235,7 @@ namespace nyx
 //        device.reset() ;
 //      }
 //      
-//      data().kgl_instance.reset() ;
+//      data().iris_instance.reset() ;
     }
 
     void VkModule::execute()

@@ -23,9 +23,9 @@
  */
 
 #include "Vulkan.h"
-#include <vkg/Device.h>
-#include <vkg/Instance.h>
-#include <data/Bus.h>
+#include <nyx/vkg/Device.h>
+#include <nyx/vkg/Instance.h>
+#include <iris/data/Bus.h>
 #include <vulkan/vulkan.hpp>
 #include <iostream>
 

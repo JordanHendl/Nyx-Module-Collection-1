@@ -22,9 +22,9 @@
  * Created on January 2, 2021, 5:43 PM
  */
 #include "Window.h"
-#include <vkg/Device.h>
-#include <vkg/Instance.h>
-#include <data/Bus.h>
+#include <nyx/vkg/Device.h>
+#include <nyx/vkg/Instance.h>
+#include <iris/data/Bus.h>
 #include <vulkan/vulkan.hpp>
 #include <iostream>
 #include <string>

@@ -16,7 +16,7 @@
  */
 
 
-#include <module/Module.h>
+#include <iris/module/Module.h>
 
 namespace nyx
 {

@@ -35,7 +35,7 @@ OPTION( BUILD_RELEASE "Whether or not the to build for release."                
 OPTION( BUILD_TESTS   "Whether or not the to build tests."                      ON  )
 OPTION( RUN_TESTS     "Whether or not the module tests should be run if built." OFF )
 
-PROJECT( nmc1 CXX )
+PROJECT( nyx_module_collection_1 CXX )
 
 MESSAGE( INFO "Nyx Module Collection 1 Prebuild" ) 
 MESSAGE( INFO " " ) 
