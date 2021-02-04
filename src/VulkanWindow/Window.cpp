@@ -21,6 +21,7 @@
 #include <nyx/NyxFile.h>
 #include <nyx/library/Window.h>
 #include <nyx/library/Array.h>
+#include <nyx/event/Event.h>
 #include <nyx/library/Image.h>
 #include <iris/data/Bus.h>
 #include <iris/log/Log.h>
@@ -114,7 +115,7 @@ namespace nyx
       
       static constexpr Vertex   vertex_data[] = { { -1.0f, -1.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { -1.0f, 1.0f, 0.0f, 1.0f } } ;
       static constexpr unsigned index_data [] = { 0, 1, 3, 1, 2, 3 } ;
-
+      nyx::EventManager                manager     ;
       nyx::List<Impl::Synchronization> syncs       ; ///< The synchronization objects to use for this object's synchronization.
       nyx::List<Impl::CommandRecord  > cmds        ; ///< The command buffers to record commands into.
       nyx::List<Impl::Descriptor     > descriptors ; ///< The descriptors to use for rendering.
@@ -136,6 +137,7 @@ namespace nyx
       unsigned                         height      ; ///< The height of this window in pixels.
       std::string                      module_name ; ///< The name of this module.
       std::mutex                       mutex       ; ///< Mutex to ensure images and synchronizations arent set while this module is processing.
+      unsigned                             should_exit ;
 
       /** Default constructor.
        */
@@ -147,10 +149,28 @@ namespace nyx
        */
       void setDevice( unsigned id ) ;
       
-      /**
-       * @param sync
+      /** Method to retrieve the exit flag of this obejct.
+       */
+      unsigned exit() ;
+
+      /** Method to recieve an exit signal from the input window.
+       * @param The exit signal.
+       */
+      void handleExit( const nyx::Event& event ) ;
+
+      /** Method to set whether to quit the iris runtime when exitting this window.
+       * @param exit Whether to exit the iris runtime when exitting this window.
+       */
+      void shouldExitOnExit( bool exit ) ;
+
+      /** Method to initialize the GPU buffers of this object.
        */
       void initBuffers() ;
+      
+      /** Method to remake the object needed for a recreated swapchain.
+       */
+      void remakeObjects() ;
+      
 
       /** Method to input an image to draw to this window's current vulkan swapchain image.
        * @param The image to draw to this object.
@@ -185,12 +205,47 @@ namespace nyx
     
     VkWindowData::VkWindowData()
     {
-      this->width     = 1024         ;
-      this->height    = 720          ;
-      this->title     = "OGM_Window" ;
-      this->device    = 0            ;
+      this->should_exit = 0            ;
+      this->width       = 1024         ;
+      this->height      = 720          ;
+      this->title       = "OGM_Window" ;
+      this->device      = 0            ;
     }
     
+    unsigned VkWindowData::exit()
+    {
+      return this->should_exit ;
+    }
+
+    void VkWindowData::handleExit( const nyx::Event& event )
+    {
+      event.type() ;
+      if( this->should_exit == 1 )
+      {
+        ::exit( -1 ) ;
+      }
+    }
+
+    void VkWindowData::shouldExitOnExit( bool exit )
+    {
+      if( exit )
+      {
+        this->should_exit = 1 ;
+        this->bus.publish( this, &VkWindowData::exit, "Iris::Exit::Flag" ) ;
+      }
+    }
+
+    void VkWindowData::remakeObjects()
+    {
+      this->pass    .reset() ;
+      this->pipeline.reset() ;
+      this->cmds    .reset() ;
+
+      this->pass    .initialize( this->swapchain                                  ) ;
+      this->pipeline.initialize( this->pass, this->shader                         ) ;
+      this->cmds    .initialize( this->pass.numFramebuffers() + 1, this->queue, 1 ) ;
+    }
+
     void VkWindowData::initBuffers()
     {
       Impl::Array<Vertex  > staging_1 ;
@@ -309,13 +364,18 @@ namespace nyx
         data().descriptors.advance() ;
       }
 
-      data().syncs.current().waitOn( data().swapchain.acquire() ) ;
+      if( data().swapchain.acquire() == Impl::Error::RecreateSwapchain )
+      {
+        data().remakeObjects() ;
+      }
+
       Impl::deviceSynchronize( data().device ) ;
     }
 
     void VkWindow::subscribe( unsigned id )
     {
       using IMPL = nyx::vkg::Vulkan ;
+      
       
       data().module_name = this->name() ;
       data().bus.setChannel( id ) ;
@@ -327,6 +387,9 @@ namespace nyx
       data().bus.enroll( this->module_data, &VkWindowData::setDevice         , iris::OPTIONAL, this->name(), "::device"     ) ;
       data().bus.enroll( this->module_data, &VkWindowData::setHeight         , iris::OPTIONAL, this->name(), "::height"     ) ;
       data().bus.enroll( this->module_data, &VkWindowData::setTitle          , iris::OPTIONAL, this->name(), "::title"      ) ;
+      data().bus.enroll( this->module_data, &VkWindowData::shouldExitOnExit  , iris::OPTIONAL, this->name(), "::quit_iris"  ) ;
+
+      data().manager.enroll( this->module_data, &VkWindowData::handleExit, nyx::Event::Type::WindowExit, this->name() ) ;
     }
 
     void VkWindow::shutdown()
@@ -342,7 +405,8 @@ namespace nyx
       
       data().mutex.lock() ;
       iris::log::Log::output( this->name(), " copying image to window." ) ;
-     
+      
+      data().window.handleEvents() ;
       data().cmds.current().record( data().pass ) ;
       data().cmds.current().bind( data().pipeline    ) ;
       data().cmds.current().bind( data().descriptors ) ;
@@ -350,7 +414,11 @@ namespace nyx
       data().cmds.current().stop() ;
       
       data().queue.submit( data().cmds  ) ;
-      data().swapchain.submit( data().syncs ) ;
+
+      if( data().swapchain.submit() == Impl::Error::RecreateSwapchain )
+      {
+        data().remakeObjects() ;
+      }
       
       data().syncs.current().clear() ;
       
@@ -358,9 +426,14 @@ namespace nyx
       data().cmds       .advance() ;
       data().descriptors.advance() ;
       
-      data().syncs.current() = ( data().swapchain.acquire() ) ;
-
+      if( data().swapchain.acquire() == Impl::Error::RecreateSwapchain)
+      {
+        data().remakeObjects() ;
+      }
+      
       data().mutex.unlock() ;
+
+      data().bus.emit() ;
     }
 
     VkWindowData& VkWindow::data()
