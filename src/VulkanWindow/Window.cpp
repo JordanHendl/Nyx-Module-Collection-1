@@ -310,6 +310,7 @@ namespace nyx
     void VkWindowData::setTitle( const char* title )
     {
       this->title = title ;
+      this->window.setTitle( title ) ;
     }
     
     VkWindow::VkWindow()
