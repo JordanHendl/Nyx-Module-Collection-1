@@ -122,7 +122,7 @@ namespace nyx
       nyx::RGBAImage<Impl>             image       ; ///< The staging image.
       Impl::Array<Vertex>              vertices    ; ///< The vertices to use for drawing.
       Impl::Array<unsigned>            indices     ; ///< The indices to use for drawing.
-      Impl::Device                     device      ; ///< The device to use for all vulkan calls.
+      unsigned                         device      ; ///< The device to use for all vulkan calls.
       vk::SurfaceKHR                   vk_surface  ; ///< The surface to use for generating a device.
       nyx::Window<Impl>                window      ; ///< The implementation window object.
       Impl::DescriptorPool             pool        ; ///< The pool to grab descriptors from.
@@ -132,7 +132,6 @@ namespace nyx
       Impl::Swapchain                  swapchain   ; ///< The swapchain object to manage rendering to this window.
       Impl::RenderPass                 pass        ; ///< The render pass object to use for handle drawing to the window.
       std::string                      title       ; ///< The string title of this window.
-      unsigned                         device_id   ; ///< The id of the device to use for this object's GPU.
       unsigned                         width       ; ///< The width of this window in pixels.
       unsigned                         height      ; ///< The height of this window in pixels.
       std::string                      module_name ; ///< The name of this module.
@@ -141,17 +140,12 @@ namespace nyx
       /** Default constructor.
        */
       VkWindowData() ;
-      
-      /** Method to set the device id to use for this object.
-       * @param id The id of the vulkan device to use.
-       */
-      void setDeviceId( unsigned id ) ;
 
       /** Method to set the device for this object to use.
        * @param id The id of device created.
        * @param device The const-reference to the device.
        */
-      void setDevice( unsigned id, const nyx::vkg::Device& device ) ;
+      void setDevice( unsigned id ) ;
       
       /**
        * @param sync
@@ -163,11 +157,6 @@ namespace nyx
        */
       void draw( const nyx::RGBAImage<Impl>& image ) ;
       
-      /** Method to input an sync to wait on for this window's current vulkan swapchain image.
-       * @param The synchronization object to wait on.
-       */
-      void wait( const nyx::vkg::Synchronization& sync ) ;
-
       /** Method to set the width of the window in pixels.
        * @param width The width in pixels of the window.
        */
@@ -186,30 +175,20 @@ namespace nyx
       /** Method to set the name of the input image to copy into this object's image buffer.
        * @return The name to associate with this object's input image.
        */
-      void setInputName( const char* name ) ;
+      void setInputName( unsigned idx, const char* name ) ;
       
-      /** Method to set the name of the input synchronization object.
-       * @param name The name to associate with the input synchronization of this object.
-       */
-      void setInputSyncName( const char* name ) ;
-
       /** Method to set the output name of this object.
        * The name of the output of this module.
        */
-      void setOutputName( const char* name ) ;
-
-      /** Method to retrieve const reference to the surface of this object;
-       * @return Const reference to a kgl device from this object.
-       */
-      const vk::SurfaceKHR& surface() ;
+      void setOutputName( unsigned idx, const char* name ) ;
     };
     
     VkWindowData::VkWindowData()
     {
-      this->device_id = 0            ;
       this->width     = 1024         ;
       this->height    = 720          ;
       this->title     = "OGM_Window" ;
+      this->device    = 0            ;
     }
     
     void VkWindowData::initBuffers()
@@ -231,107 +210,34 @@ namespace nyx
       cmd_buff.record() ;
       this->vertices.copy( staging_1, cmd_buff, 4 ) ;
       this->indices .copy( staging_2, cmd_buff, 6 ) ;
-      this->image.transition( nyx::ImageLayout::ShaderRead, cmd_buff ) ;
       cmd_buff.stop() ;
       
       this->queue.submit( cmd_buff ) ;
-      
+      this->image.transition( nyx::ImageLayout::ShaderRead, this->queue ) ;
+      Impl::deviceSynchronize( this->device ) ;
       staging_1.reset() ;
       staging_2.reset() ;
       cmd_buff .reset() ;
     }
 
-    const vk::SurfaceKHR& VkWindowData::surface()
+    void VkWindowData::setInputName( unsigned idx, const char* name )
     {
-      return this->vk_surface ;
-    }
-    
-    void VkWindowData::setDeviceId( unsigned id )
-    {
-      this->device_id = id ;
-    }
-    
-    void VkWindowData::setInputName( const char* name )
-    {
-      this->bus.enroll( this, &VkWindowData::draw, iris::REQUIRED, name ) ;
-    }
-    
-    void VkWindowData::setInputSyncName( const char* name )
-    {
-      this->bus.enroll( this, &VkWindowData::wait, iris::REQUIRED, name ) ;
-    }
-    
-    void VkWindowData::setDevice( unsigned id, const nyx::vkg::Device& device )
-    {
-      if( id == this->device_id && device.initialized() && this->surface() )
+      switch( idx )
       {
-        this->syncs.initialize( this->pass.numFramebuffers() + 1, device, 0  ) ;
-
-        this->device = device ;
-        
-        this->queue = this->device.graphicsQueue() ;
-        this->pass.setAttachmentStoreOp( vk::AttachmentStoreOp::eStore ) ;
-        this->pass.setFinalLayout      ( nyx::ImageLayout::PresentSrc  ) ;
-        this->pass.setScissorExtentX   ( this->width                   ) ;
-        this->pass.setScissorExtentY   ( this->height                  ) ;
-        
-
-        this->shader.addAttribute   ( 0, 0, Impl::Shader::Format::vec4                             ) ;
-        this->shader.addInputBinding( 0, sizeof( float ) * 4, Impl::Shader::InputRate::Vertex      ) ;
-        this->shader.addDescriptor  ( 0, nyx::ImageUsage::Sampled, 1, nyx::ShaderStage::Fragment   ) ;
-        this->shader.addShaderModule( nyx::ShaderStage::Vertex  , vert_spirv, sizeof( vert_spirv ) ) ;
-        this->shader.addShaderModule( nyx::ShaderStage::Fragment, frag_spirv, sizeof( frag_spirv ) ) ;
-        this->pool  .addImageInput  ( "framebuffer", 0, nyx::ImageUsage::Sampled                   ) ;
-        
-        this->shader     .initialize( device                                                    ) ;
-        this->pool       .initialize( this->shader, 50                                          ) ;
-        this->swapchain  .initialize( this->queue, this->surface()                              ) ;
-        this->pass       .initialize( this->swapchain                                           ) ;
-        this->pipeline   .initialize( this->pass, this->shader                                  ) ;
-        this->cmds       .initialize( this->pass.numFramebuffers() + 1, this->queue, 1          ) ;
-        this->descriptors.initialize( 50, this->pool                                            ) ;
-        this->image      .initialize( device, this->swapchain.width(), this->swapchain.height() ) ;
-        
-        
-        this->initBuffers() ;
-        for( unsigned i = 0; i < 50; i++ )
-        { 
-          this->descriptors.current().set( "framebuffer", this->image ) ;
-          this->descriptors.advance() ;
-        }
-          
-        this->syncs.current().waitOn( this->swapchain.acquire() ) ;
+        default: this->bus.enroll( this, &VkWindowData::draw, iris::REQUIRED, name ) ;
       }
+    }
+    
+    void VkWindowData::setDevice( unsigned id )
+    {
+      this->device = id ;
     }
     
     void VkWindowData::draw( const nyx::RGBAImage<Impl>& image )
     {
       this->mutex.lock() ;
-      if( this->swapchain.initialized() )
-      {
-        this->syncs.current().waitOnFences() ;
-        
-        this->cmds.current().record() ;
-        this->image.copy( image, this->cmds ) ;
-        this->cmds.current().stop() ;
-        this->queue.submit( this->cmds ) ;
-      }
+      this->image.copy( image, this->queue ) ;
       this->mutex.unlock() ;
-    }
-    
-    void VkWindowData::wait( const nyx::vkg::Synchronization& sync )
-    {
-      this->mutex.lock() ;
-      if( this->device.initialized() )
-      {
-        this->syncs.current().waitOn( sync ) ;
-      }
-      this->mutex.unlock() ;
-    }
-    
-    void VkWindowData::setOutputName( const char* name )
-    {
-      this->bus.publish( this, &VkWindowData::surface, name ) ;
     }
     
     void VkWindowData::setWidth( unsigned width )
@@ -354,6 +260,10 @@ namespace nyx
     VkWindow::VkWindow()
     {
       this->module_data = new VkWindowData() ;
+      
+      Impl::addDeviceExtension( "VK_KHR_swapchain"                          ) ;
+      Impl::addInstanceExtension( Impl::platformSurfaceInstanceExtensions() ) ;
+      Impl::addInstanceExtension( "VK_KHR_surface"                          ) ;
     }
 
     VkWindow::~VkWindow()
@@ -367,7 +277,40 @@ namespace nyx
       
       data().vk_surface = data().window.context() ;
       
-      data().bus.emit() ;
+      data().syncs.initialize( data().pass.numFramebuffers() + 1, data().device, 0  ) ;
+      
+      data().queue = Impl::presentQueue( data().vk_surface, data().device ) ;
+      data().pass.setAttachmentStoreOp( vk::AttachmentStoreOp::eStore ) ;
+      data().pass.setFinalLayout      ( nyx::ImageLayout::PresentSrc  ) ;
+      data().pass.setScissorExtentX   ( data().width                   ) ;
+      data().pass.setScissorExtentY   ( data().height                  ) ;
+      
+      data().shader.addAttribute   ( 0, 0, Impl::Shader::Format::vec4                             ) ;
+      data().shader.addInputBinding( 0, sizeof( float ) * 4, Impl::Shader::InputRate::Vertex      ) ;
+      data().shader.addDescriptor  ( 0, nyx::ImageUsage::Sampled, 1, nyx::ShaderStage::Fragment   ) ;
+      data().shader.addShaderModule( nyx::ShaderStage::Vertex  , vert_spirv, sizeof( vert_spirv ) ) ;
+      data().shader.addShaderModule( nyx::ShaderStage::Fragment, frag_spirv, sizeof( frag_spirv ) ) ;
+      data().pool  .addImageInput  ( "framebuffer", 0, nyx::ImageUsage::Sampled                   ) ;
+      
+      data().shader     .initialize( data().device                                                      ) ;
+      data().pool       .initialize( data().shader, 50                                                  ) ;
+      data().swapchain  .initialize( data().queue, data().vk_surface                                    ) ;
+      data().pass       .initialize( data().swapchain                                                   ) ;
+      data().pipeline   .initialize( data().pass, data().shader                                         ) ;
+      data().cmds       .initialize( data().pass.numFramebuffers() + 1, data().queue, 1                 ) ;
+      data().descriptors.initialize( 50, data().pool                                                    ) ;
+      data().image      .initialize( data().device, data().swapchain.width(), data().swapchain.height() ) ;
+      
+      data().initBuffers() ;
+      
+      for( unsigned i = 0; i < 50; i++ )
+      { 
+        data().descriptors.current().set( "framebuffer", data().image ) ;
+        data().descriptors.advance() ;
+      }
+
+      data().syncs.current().waitOn( data().swapchain.acquire() ) ;
+      Impl::deviceSynchronize( data().device ) ;
     }
 
     void VkWindow::subscribe( unsigned id )
@@ -376,17 +319,14 @@ namespace nyx
       
       data().module_name = this->name() ;
       data().bus.setChannel( id ) ;
-      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setBorderless, iris::OPTIONAL, this->name(), "::borderless"          ) ;
-      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setFullscreen, iris::OPTIONAL, this->name(), "::fullscreen"          ) ;
-      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setResizable , iris::OPTIONAL, this->name(), "::resizable"           ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setOutputName     , iris::OPTIONAL, this->name(), "::output_surface_name" ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setInputName      , iris::OPTIONAL, this->name(), "::input_image_name"    ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setInputSyncName  , iris::OPTIONAL, this->name(), "::sync_input_name"     ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setWidth          , iris::OPTIONAL, this->name(), "::width"               ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setDeviceId       , iris::OPTIONAL, this->name(), "::device_id"           ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setHeight         , iris::OPTIONAL, this->name(), "::height"              ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setTitle          , iris::OPTIONAL, this->name(), "::title"               ) ;
-      data().bus.enroll( this->module_data, &VkWindowData::setDevice         , iris::OPTIONAL,               "vkg_device"            ) ;
+      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setBorderless, iris::OPTIONAL, this->name(), "::borderless" ) ;
+      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setFullscreen, iris::OPTIONAL, this->name(), "::fullscreen" ) ;
+      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setResizable , iris::OPTIONAL, this->name(), "::resizable"  ) ;
+      data().bus.enroll( this->module_data, &VkWindowData::setInputName      , iris::OPTIONAL, this->name(), "::inputs"     ) ;
+      data().bus.enroll( this->module_data, &VkWindowData::setWidth          , iris::OPTIONAL, this->name(), "::width"      ) ;
+      data().bus.enroll( this->module_data, &VkWindowData::setDevice         , iris::OPTIONAL, this->name(), "::device"     ) ;
+      data().bus.enroll( this->module_data, &VkWindowData::setHeight         , iris::OPTIONAL, this->name(), "::height"     ) ;
+      data().bus.enroll( this->module_data, &VkWindowData::setTitle          , iris::OPTIONAL, this->name(), "::title"      ) ;
     }
 
     void VkWindow::shutdown()
@@ -400,28 +340,27 @@ namespace nyx
     {
       data().bus.wait() ;
       
-      if( data().device.initialized() )
-      {
-        iris::log::Log::output( this->name(), " copying image to window." ) ;
-        data().mutex.lock() ;
-       
+      data().mutex.lock() ;
+      iris::log::Log::output( this->name(), " copying image to window." ) ;
+     
+      data().cmds.current().record( data().pass ) ;
+      data().cmds.current().bind( data().pipeline    ) ;
+      data().cmds.current().bind( data().descriptors ) ;
+      data().cmds.current().drawIndexed( data().indices, data().vertices ) ;
+      data().cmds.current().stop() ;
+      
+      data().queue.submit( data().cmds  ) ;
+      data().swapchain.submit( data().syncs ) ;
+      
+      data().syncs.current().clear() ;
+      
+      data().syncs      .advance() ;
+      data().cmds       .advance() ;
+      data().descriptors.advance() ;
+      
+      data().syncs.current() = ( data().swapchain.acquire() ) ;
 
-        data().cmds.current().record( data().pass ) ;
-        data().cmds.current().bind( data().pipeline    ) ;
-        data().cmds.current().bind( data().descriptors ) ;
-        data().cmds.current().drawIndexed( data().indices, data().vertices ) ;
-
-        data().cmds.current().stop() ;
-        
-        data().queue.submit( data().cmds, data().syncs ) ;
-        data().swapchain.submit( data().syncs ) ;
-        data().syncs.current().clear() ;
-        data().syncs.advance() ;
-        data().cmds.advance() ;
-        data().syncs.current().waitOn( data().swapchain.acquire() ) ;
-
-        data().mutex.unlock() ;
-      }
+      data().mutex.unlock() ;
     }
 
     VkWindowData& VkWindow::data()

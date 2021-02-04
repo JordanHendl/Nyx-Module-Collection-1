@@ -25,35 +25,35 @@
 #include <nyx/vkg/Device.h>
 #include <nyx/vkg/Instance.h>
 #include <iris/data/Bus.h>
-#include <vulkan/vulkan.hpp>
+//#include <vulkan/vulkan.hpp>
 #include <iostream>
 #include <string>
 
-vk::SurfaceKHR vk_surface ;
+//vk::SurfaceKHR vk_surface ;
 bool got_surface = false ;
-void setSurface( const vk::SurfaceKHR& surface )
-{
-  vk_surface = surface ;
-  got_surface = true ;
-}
+//void setSurface( const vk::SurfaceKHR& surface )
+//{
+//  vk_surface = surface ;
+//  got_surface = true ;
+//}
 
 int main() 
 {
   nyx::vkg::VkWindow module ;
   iris::Bus          bus    ;
   
-  bus.enroll( &setSurface, "name::surface" ) ;
-  module.setName( "name" ) ;
-  module.subscribe( 0 ) ; 
-  bus.emit<const char*>( "surface", "name::output" ) ;
-  module.initialize() ;
-  module.execute()    ;
+//  bus.enroll( &setSurface, "name::surface" ) ;
+//  module.setName( "name" ) ;
+//  module.subscribe( 0 ) ; 
+//  bus.emit<const char*>( "surface", "name::output" ) ;
+//  module.initialize() ;
+//  module.execute()    ;
 
-  if( got_surface )
-  {
-    std::cout << "Window and Surface successfully created & Sent successfully." << std::endl ;
+//  if( got_surface )
+//  {
+//    std::cout << "Window and Surface successfully created & Sent successfully." << std::endl ;
     return 0 ;
-  }
+//  }
   
   std::cout << "Module failed to create or send window & surface data." << std::endl ;
   return 1 ;

@@ -30,7 +30,6 @@
 #include <nyx/vkg/Vulkan.h>
 #include <nyx/template/List.h>
 #include <string>
-#include <vulkan/vulkan.hpp>
 
 static const unsigned VERSION = 1 ;
 
@@ -49,7 +48,7 @@ namespace nyx
       Impl::Image<Format>              converted_img  ;
       Impl::Array<unsigned char>       staging_buffer ;
       Impl::Synchronization            current        ;
-      Impl::Device                     device         ;
+      unsigned                         device         ;
       iris::Bus                        bus            ;
       std::string                      name           ;
       const unsigned char*             host_bytes     ;
@@ -80,7 +79,7 @@ namespace nyx
       /** Method to set the output name of this module.
        * @param name The name to associate with this module's output.
        */
-      void setOutputName( const char* name ) ;
+      void setOutputName( unsigned idx, const char* name ) ;
 
       /** Method to set the size of the staging buffer of this object in bytes.
        * @param byte_size The size in bytes to make this object's staging buffer.
@@ -90,27 +89,12 @@ namespace nyx
       /** Method to set the name of the input width parameter.
        * @param name The name to associate with the input.
        */
-      void setInputWidthName( const char* name ) ;
-      
-      /** Method to set the name of the input height parameter.
-       * @param name The name to associate with the input.
-       */
-      void setInputHeightName( const char* name ) ;
-
-      /** Method to set the name of the input channel parameter.
-       * @param name The name to associate with the input.
-       */
-      void setInputChannelName( const char* name ) ;
-      
-      /** Method to set the name of the input image bytes parameter.
-       * @param name The name to associate with the input.
-       */
-      void setInputBytesName( const char* name ) ;
+      void setInputName( unsigned idx, const char* name ) ;
       
       /** Method to set the device to use for this module's operations.
        * @param device The device to set.
        */
-      void setDevice( unsigned id, const nyx::vkg::Device& device ) ;
+      void setDevice( unsigned id ) ;
       
       /** Method to set the width of the incoming image.
        * @param width The width of the incoming image.
@@ -140,6 +124,7 @@ namespace nyx
       this->host_bytes   = nullptr                                   ;
       this->name         = ""                                        ;
       this->staging_size = sizeof( unsigned char ) * 1920 * 1080 * 4 ;
+      this->device       = 0                                         ;
     }
     
     const nyx::RGBAImage<Impl>& ImageConverterData::image()
@@ -159,53 +144,41 @@ namespace nyx
       this->bus.publish( this, &ImageConverterData::sync, name ) ;
     }
     
-    void ImageConverterData::setOutputName( const char* name )
+    void ImageConverterData::setOutputName( unsigned idx, const char* name )
     {
-      this->bus.publish( this, &ImageConverterData::image, name ) ;
+      switch( idx )
+      {
+        case 0  : this->bus.publish( this, &ImageConverterData::image, name ) ;
+        default : break ;
+      }
     }
     
     void ImageConverterData::setStagingBufferSize( unsigned byte_size )
     {
       this->staging_size = byte_size ;
 
-      if( this->device.initialized() )
+      if( Impl::hasDevice( this->device ) )
       {
         this->staging_buffer.reset() ;
         this->staging_buffer.initialize( this->device, byte_size, true, nyx::ArrayFlags::TransferSrc ) ;
       }
     }
     
-    void ImageConverterData::setInputWidthName( const char* name )
+    void ImageConverterData::setInputName( unsigned idx, const char* name )
     {
-      this->bus.enroll( this, &ImageConverterData::setWidth, iris::REQUIRED, name ) ;
-    }
-    
-    void ImageConverterData::setInputHeightName( const char* name )
-    {
-      this->bus.enroll( this, &ImageConverterData::setHeight, iris::REQUIRED, name ) ;
-    }
-    
-    void ImageConverterData::setInputChannelName( const char* name )
-    {
-      this->bus.enroll( this, &ImageConverterData::setNumChannels, iris::REQUIRED, name ) ;
-    }
-    
-    void ImageConverterData::setInputBytesName( const char* name )
-    {
-      this->bus.enroll( this, &ImageConverterData::setHostBytes, iris::REQUIRED, name ) ;
-    }
-
-    void ImageConverterData::setDevice( unsigned id, const nyx::vkg::Device& device )
-    {
-      if( !this->device.initialized() && id == 0  && device.initialized() )
+      switch( idx )
       {
-        this->device = device ;
-        this->staging_buffer.reset() ;
-        this->staging_buffer.initialize( this->device, this->staging_size, true, nyx::ArrayFlags::TransferSrc ) ;
-        this->queue = this->device.transferQueue()   ;
-        this->cmds .initialize( 20, this->queue, 1 ) ;
-        this->syncs.initialize( 20, device, 0      ) ;
+        case 0 : this->bus.enroll( this, &ImageConverterData::setHostBytes  , iris::REQUIRED, name ) ; break ;
+        case 1 : this->bus.enroll( this, &ImageConverterData::setWidth      , iris::REQUIRED, name ) ; break ;
+        case 2 : this->bus.enroll( this, &ImageConverterData::setHeight     , iris::REQUIRED, name ) ; break ;
+        case 3 : this->bus.enroll( this, &ImageConverterData::setNumChannels, iris::REQUIRED, name ) ; break ;
+        default : break ;
       }
+    }
+    
+    void ImageConverterData::setDevice( unsigned id )
+    {
+      this->device = id ;
     }
     
     void ImageConverterData::setWidth( unsigned width )
@@ -240,25 +213,25 @@ namespace nyx
 
     void ImageConverter::initialize()
     {
-      
+      data().staging_buffer.initialize( data().device, data().staging_size, true, nyx::ArrayFlags::TransferSrc ) ;
+      data().queue = Impl::graphicsQueue() ;
+      data().cmds .initialize( 20, data().queue, 1  ) ;
+      data().syncs.initialize( 20, data().device, 0 ) ;
+      data().staging_buffer.reset() ;
+      data().staging_buffer.initialize( data().device, data().staging_size, true, nyx::ArrayFlags::TransferSrc ) ;
     }
 
     void ImageConverter::subscribe( unsigned id )
     {
       data().bus.setChannel( id ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setDevice                   , iris::OPTIONAL,               "vkg_device"            ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputWidthName           , iris::OPTIONAL, this->name(), "::input_width_name"    ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputHeightName          , iris::OPTIONAL, this->name(), "::input_height_name"   ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputChannelName         , iris::OPTIONAL, this->name(), "::input_channels_name" ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputBytesName           , iris::OPTIONAL, this->name(), "::input_bytes_name"    ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setStagingBufferSize        , iris::OPTIONAL, this->name(), "::staging_buffer_size" ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setOutputName               , iris::OPTIONAL, this->name(), "::output"              ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setOutputSynchronizationName, iris::OPTIONAL, this->name(), "::sync_output"         ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setInputName , iris::OPTIONAL, this->name(), "::inputs"  ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setOutputName, iris::OPTIONAL, this->name(), "::outputs" ) ;
+      data().bus.enroll( this->module_data, &ImageConverterData::setDevice    , iris::OPTIONAL, this->name(), "::device"  ) ;
     }
 
     void ImageConverter::shutdown()
     {
-      data().device.wait() ;
+      Impl::deviceSynchronize( data().device ) ;
       data().converted_img .reset() ;
       data().staging_buffer.reset() ;
       data().syncs         .reset() ;
@@ -271,7 +244,7 @@ namespace nyx
       
        data().bus.wait() ;
       
-      if( data().device.initialized() && data().width != 0 && data().height != 0 && data().channels != 0 )
+      if( data().width != 0 && data().height != 0 && data().channels != 0 )
       {
         img_size = data().width * data().height * data().channels ;
         
@@ -284,19 +257,12 @@ namespace nyx
         // Resize image to desired dimensions.
         data().converted_img.resize( data().width, data().height ) ;
         
-        data().syncs.current().waitOnFences() ;
-
-        // Record the needed command.
-        data().cmds.current().record() ;
         if( data().staging_buffer.size() > img_size )
         {
           data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
-          data().converted_img.copy( data().staging_buffer, data().cmds ) ;
+          data().converted_img.copy( data().staging_buffer, data().queue ) ;
         }
-        data().cmds.current().stop() ;
         
-        // Submit and advance to the next command buffer.
-        data().queue.submit( data().cmds, data().syncs ) ;
         data().cmds.advance() ;
         data().bus.emit() ;
       }
