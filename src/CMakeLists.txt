@@ -1,5 +1,5 @@
 SET(CMAKE_SHARED_LIBRARY_PREFIX "" )
 
-ADD_SUBDIRECTORY( Vulkan               ) 
-ADD_SUBDIRECTORY( VulkanImageConverter ) 
-ADD_SUBDIRECTORY( VulkanWindow         ) 
+ADD_SUBDIRECTORY( VulkanDebug          ) 
+ADD_SUBDIRECTORY( NyxVkgImageConverter ) 
+ADD_SUBDIRECTORY( NyxWindow            ) 

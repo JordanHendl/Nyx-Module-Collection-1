@@ -317,7 +317,7 @@ namespace nyx
     {
       this->module_data = new VkWindowData() ;
       
-      Impl::addDeviceExtension( "VK_KHR_swapchain"                          ) ;
+      Impl::addDeviceExtension  ( "VK_KHR_swapchain"                        ) ;
       Impl::addInstanceExtension( Impl::platformSurfaceInstanceExtensions() ) ;
       Impl::addInstanceExtension( "VK_KHR_surface"                          ) ;
     }
@@ -336,8 +336,8 @@ namespace nyx
       data().syncs.initialize( data().pass.numFramebuffers() + 1, data().device, 0  ) ;
       
       data().queue = Impl::presentQueue( data().vk_surface, data().device ) ;
-      data().pass.setAttachmentStoreOp( vk::AttachmentStoreOp::eStore ) ;
-      data().pass.setFinalLayout      ( nyx::ImageLayout::PresentSrc  ) ;
+      data().pass.setAttachmentStoreOp( vk::AttachmentStoreOp::eStore  ) ;
+      data().pass.setFinalLayout      ( nyx::ImageLayout::PresentSrc   ) ;
       data().pass.setScissorExtentX   ( data().width                   ) ;
       data().pass.setScissorExtentY   ( data().height                  ) ;
       
