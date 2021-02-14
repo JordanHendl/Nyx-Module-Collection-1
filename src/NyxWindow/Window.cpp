@@ -16,6 +16,7 @@
  */
 
 #include "Window.h"
+#include "shader.h"
 #include <nyx/template/List.h>
 #include <nyx/vkg/Vulkan.h>
 #include <nyx/NyxFile.h>
@@ -137,7 +138,7 @@ namespace nyx
       unsigned                         height      ; ///< The height of this window in pixels.
       std::string                      module_name ; ///< The name of this module.
       std::mutex                       mutex       ; ///< Mutex to ensure images and synchronizations arent set while this module is processing.
-      unsigned                             should_exit ;
+      bool                             should_exit ;
 
       /** Default constructor.
        */
@@ -151,7 +152,7 @@ namespace nyx
       
       /** Method to retrieve the exit flag of this obejct.
        */
-      unsigned exit() ;
+      bool exit() ;
 
       /** Method to recieve an exit signal from the input window.
        * @param The exit signal.
@@ -205,14 +206,14 @@ namespace nyx
     
     VkWindowData::VkWindowData()
     {
-      this->should_exit = 0            ;
+      this->should_exit = false        ;
       this->width       = 1024         ;
       this->height      = 720          ;
       this->title       = "OGM_Window" ;
       this->device      = 0            ;
     }
     
-    unsigned VkWindowData::exit()
+    bool VkWindowData::exit()
     {
       return this->should_exit ;
     }
@@ -220,26 +221,27 @@ namespace nyx
     void VkWindowData::handleExit( const nyx::Event& event )
     {
       event.type() ;
-      if( this->should_exit == 1 )
-      {
-        ::exit( -1 ) ;
-      }
+      this->should_exit = true ;
     }
 
     void VkWindowData::shouldExitOnExit( bool exit )
     {
       if( exit )
       {
-        this->should_exit = 1 ;
         this->bus.publish( this, &VkWindowData::exit, "Iris::Exit::Flag" ) ;
       }
     }
 
     void VkWindowData::remakeObjects()
     {
-      this->pass    .reset() ;
-      this->pipeline.reset() ;
-      this->cmds    .reset() ;
+      this->pass     .reset() ;
+      this->pipeline .reset() ;
+      this->cmds     .reset() ;
+      
+      this->pass.setScissorExtentX(   this->window.width () ) ;
+      this->pass.setScissorExtentY(   this->window.height() ) ;
+      this->pass.setViewportWidth (0, this->window.width () ) ;
+      this->pass.setViewportHeight(0, this->window.height() ) ;
 
       this->pass    .initialize( this->swapchain                                  ) ;
       this->pipeline.initialize( this->pass, this->shader                         ) ;
@@ -291,6 +293,7 @@ namespace nyx
     void VkWindowData::draw( const nyx::RGBAImage<Impl>& image )
     {
       this->mutex.lock() ;
+      this->image.resize( image.width(), image.height() ) ;
       this->image.copy( image, this->queue ) ;
       this->mutex.unlock() ;
     }
@@ -336,18 +339,12 @@ namespace nyx
       data().syncs.initialize( data().pass.numFramebuffers() + 1, data().device, 0  ) ;
       
       data().queue = Impl::presentQueue( data().vk_surface, data().device ) ;
-      data().pass.setAttachmentStoreOp( vk::AttachmentStoreOp::eStore  ) ;
+      data().pass.setAttachmentStore( true, 0 ) ;
       data().pass.setFinalLayout      ( nyx::ImageLayout::PresentSrc   ) ;
       data().pass.setScissorExtentX   ( data().width                   ) ;
       data().pass.setScissorExtentY   ( data().height                  ) ;
-      
-      data().shader.addAttribute   ( 0, 0, Impl::Shader::Format::vec4                             ) ;
-      data().shader.addInputBinding( 0, sizeof( float ) * 4, Impl::Shader::InputRate::Vertex      ) ;
-      data().shader.addDescriptor  ( 0, nyx::ImageUsage::Sampled, 1, nyx::ShaderStage::Fragment   ) ;
-      data().shader.addShaderModule( nyx::ShaderStage::Vertex  , vert_spirv, sizeof( vert_spirv ) ) ;
-      data().shader.addShaderModule( nyx::ShaderStage::Fragment, frag_spirv, sizeof( frag_spirv ) ) ;
-      data().pool  .addImageInput  ( "framebuffer", 0, nyx::ImageUsage::Sampled                   ) ;
-      
+      data().pass.setClearColor       ( 0.0f, 0.0f, 0.0f, 1.0f         ) ;
+      data().shader.initialize( data().device, nyx::bytes::window, sizeof( nyx::bytes::window ) ) ;
       data().shader     .initialize( data().device                                                      ) ;
       data().pool       .initialize( data().shader, 50                                                  ) ;
       data().swapchain  .initialize( data().queue, data().vk_surface                                    ) ;
@@ -406,9 +403,9 @@ namespace nyx
       
       data().mutex.lock() ;
       iris::log::Log::output( this->name(), " copying image to window." ) ;
-      
       data().window.handleEvents() ;
-      data().cmds.current().record( data().pass ) ;
+      
+      data().cmds.current().record( data().pass, data().swapchain.current() ) ;
       data().cmds.current().bind( data().pipeline    ) ;
       data().cmds.current().bind( data().descriptors ) ;
       data().cmds.current().drawIndexed( data().indices, data().vertices ) ;

@@ -242,7 +242,7 @@ namespace nyx
     {
       unsigned img_size ;
       
-       data().bus.wait() ;
+      data().bus.wait() ;
       
       if( data().width != 0 && data().height != 0 && data().channels != 0 )
       {
