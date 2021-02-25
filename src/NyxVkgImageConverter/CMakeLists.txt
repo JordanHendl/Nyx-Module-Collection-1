@@ -12,6 +12,7 @@ SET( NYX_IMAGE_CONVERTER__SOURCES
 SET( NYX_IMAGE_CONVERTER__LIBRARIES
      iris_module
      iris_bus
+     iris_profiling
      nyx_vkg
    )
 

@@ -25,6 +25,7 @@
 #include "ImageConverter.h"
 #include <iris/data/Bus.h>
 #include <iris/log/Log.h>
+#include <iris/profiling/Timer.h>
 #include <nyx/library/Array.h>
 #include <nyx/library/Image.h>
 #include <nyx/vkg/Vulkan.h>
@@ -240,18 +241,20 @@ namespace nyx
 
     void ImageConverter::execute()
     {
+      iris::Timer timer ;
       unsigned img_size ;
       
       data().bus.wait() ;
       
-      if( data().width != 0 && data().height != 0 && data().channels != 0 )
+      timer.start() ;
+       if( data().width != 0 && data().height != 0 && data().channels != 0 )
       {
         img_size = data().width * data().height * data().channels ;
         
-        iris::log::Log::output( this->name(), " copying image." ) ;
         if( !data().converted_img.initialized() )
         {
           data().converted_img.initialize( data().device, data().width, data().height, 1 ) ;
+          data().converted_img.transition( nyx::ImageLayout::TransferSrc, data().queue ) ;
         }
         
         // Resize image to desired dimensions.
@@ -262,8 +265,14 @@ namespace nyx
           data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
           data().converted_img.copy( data().staging_buffer, data().queue ) ;
         }
+        else
+        {
+          data().staging_buffer.reset() ;
+          data().staging_buffer.initialize( data().device, img_size + 10000, true, nyx::ArrayFlags::TransferSrc ) ;
+        }
         
         data().cmds.advance() ;
+        timer.stop() ;
         data().bus.emit() ;
       }
     }

@@ -1,0 +1,24 @@
+FIND_PACKAGE( Iris       REQUIRED )
+FIND_PACKAGE( Nyx        REQUIRED )
+FIND_PACKAGE( Vulkan 1.2 REQUIRED )
+
+SET( NYX_IMAGE_CHOOSER_MODULE_HEADERS 
+      ImageChooser.h
+   )
+
+SET( NYX_IMAGE_CHOOSER_MODULE_SOURCES
+      ImageChooser.cpp
+   )
+
+SET( NYX_IMAGE_CHOOSER_MODULE_LIBRARIES
+     iris_module
+     iris_bus
+     nyx_library
+     nyx_vkg
+   )
+
+ADD_LIBRARY               ( ImageChooser SHARED ${NYX_IMAGE_CHOOSER_MODULE_SOURCES} ${NYX_IMAGE_CHOOSER_MODULE_HEADERS} )
+TARGET_LINK_LIBRARIES     ( ImageChooser PUBLIC ${NYX_IMAGE_CHOOSER_MODULE_LIBRARIES}                                   )
+#BUILD_TEST( TARGET ImageChooser DEPENDS ${NYX_WINDOW_MODULE_LIBRARIES} ) 
+
+INSTALL( TARGETS ImageChooser DESTINATION ${LIB_DIR} )

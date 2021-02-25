@@ -20,6 +20,7 @@
 #include <nyx/template/List.h>
 #include <nyx/vkg/Vulkan.h>
 #include <nyx/NyxFile.h>
+#include <nyx/library/Renderer.h>
 #include <nyx/library/Window.h>
 #include <nyx/library/Array.h>
 #include <nyx/event/Event.h>
@@ -38,71 +39,6 @@ namespace nyx
   namespace vkg
   {
     using Impl = nyx::vkg::Vulkan ;
-    
-    const uint32_t vert_spirv[] = 
-    {
-      0x07230203,0x00010000,0x00080008,0x00000020,0x00000000,0x00020011,0x00000001,0x0006000b,
-      0x00000001,0x4c534c47,0x6474732e,0x3035342e,0x00000000,0x0003000e,0x00000000,0x00000001,
-      0x0008000f,0x00000000,0x00000004,0x6e69616d,0x00000000,0x00000009,0x0000000c,0x00000014,
-      0x00030003,0x00000002,0x000001c2,0x00090004,0x415f4c47,0x735f4252,0x72617065,0x5f657461,
-      0x64616873,0x6f5f7265,0x63656a62,0x00007374,0x00040005,0x00000004,0x6e69616d,0x00000000,
-      0x00050005,0x00000009,0x5f786574,0x726f6f63,0x00007364,0x00040005,0x0000000c,0x74726576,
-      0x00007865,0x00060005,0x00000012,0x505f6c67,0x65567265,0x78657472,0x00000000,0x00060006,
-      0x00000012,0x00000000,0x505f6c67,0x7469736f,0x006e6f69,0x00070006,0x00000012,0x00000001,
-      0x505f6c67,0x746e696f,0x657a6953,0x00000000,0x00070006,0x00000012,0x00000002,0x435f6c67,
-      0x4470696c,0x61747369,0x0065636e,0x00070006,0x00000012,0x00000003,0x435f6c67,0x446c6c75,
-      0x61747369,0x0065636e,0x00030005,0x00000014,0x00000000,0x00040047,0x00000009,0x0000001e,
-      0x00000000,0x00040047,0x0000000c,0x0000001e,0x00000000,0x00050048,0x00000012,0x00000000,
-      0x0000000b,0x00000000,0x00050048,0x00000012,0x00000001,0x0000000b,0x00000001,0x00050048,
-      0x00000012,0x00000002,0x0000000b,0x00000003,0x00050048,0x00000012,0x00000003,0x0000000b,
-      0x00000004,0x00030047,0x00000012,0x00000002,0x00020013,0x00000002,0x00030021,0x00000003,
-      0x00000002,0x00030016,0x00000006,0x00000020,0x00040017,0x00000007,0x00000006,0x00000002,
-      0x00040020,0x00000008,0x00000003,0x00000007,0x0004003b,0x00000008,0x00000009,0x00000003,
-      0x00040017,0x0000000a,0x00000006,0x00000004,0x00040020,0x0000000b,0x00000001,0x0000000a,
-      0x0004003b,0x0000000b,0x0000000c,0x00000001,0x00040015,0x0000000f,0x00000020,0x00000000,
-      0x0004002b,0x0000000f,0x00000010,0x00000001,0x0004001c,0x00000011,0x00000006,0x00000010,
-      0x0006001e,0x00000012,0x0000000a,0x00000006,0x00000011,0x00000011,0x00040020,0x00000013,
-      0x00000003,0x00000012,0x0004003b,0x00000013,0x00000014,0x00000003,0x00040015,0x00000015,
-      0x00000020,0x00000001,0x0004002b,0x00000015,0x00000016,0x00000000,0x0004002b,0x00000006,
-      0x00000019,0x00000000,0x0004002b,0x00000006,0x0000001a,0x3f800000,0x00040020,0x0000001e,
-      0x00000003,0x0000000a,0x00050036,0x00000002,0x00000004,0x00000000,0x00000003,0x000200f8,
-      0x00000005,0x0004003d,0x0000000a,0x0000000d,0x0000000c,0x0007004f,0x00000007,0x0000000e,
-      0x0000000d,0x0000000d,0x00000002,0x00000003,0x0003003e,0x00000009,0x0000000e,0x0004003d,
-      0x0000000a,0x00000017,0x0000000c,0x0007004f,0x00000007,0x00000018,0x00000017,0x00000017,
-      0x00000000,0x00000001,0x00050051,0x00000006,0x0000001b,0x00000018,0x00000000,0x00050051,
-      0x00000006,0x0000001c,0x00000018,0x00000001,0x00070050,0x0000000a,0x0000001d,0x0000001b,
-      0x0000001c,0x00000019,0x0000001a,0x00050041,0x0000001e,0x0000001f,0x00000014,0x00000016,
-      0x0003003e,0x0000001f,0x0000001d,0x000100fd,0x00010038
-    };
-    
-    const uint32_t frag_spirv[] = 
-    {
-      0x07230203,0x00010000,0x00080008,0x0000001c,0x00000000,0x00020011,0x00000001,0x0006000b,
-      0x00000001,0x4c534c47,0x6474732e,0x3035342e,0x00000000,0x0003000e,0x00000000,0x00000001,
-      0x0007000f,0x00000004,0x00000004,0x6e69616d,0x00000000,0x00000011,0x00000015,0x00030010,
-      0x00000004,0x00000007,0x00030003,0x00000002,0x000001c2,0x00090004,0x415f4c47,0x735f4252,
-      0x72617065,0x5f657461,0x64616873,0x6f5f7265,0x63656a62,0x00007374,0x00040005,0x00000004,
-      0x6e69616d,0x00000000,0x00040005,0x00000009,0x6f6c6f63,0x00000072,0x00050005,0x0000000d,
-      0x6d617266,0x66756265,0x00726566,0x00050005,0x00000011,0x5f786574,0x726f6f63,0x00007364,
-      0x00050005,0x00000015,0x5f74756f,0x6f6c6f63,0x00000072,0x00040047,0x0000000d,0x00000022,
-      0x00000000,0x00040047,0x0000000d,0x00000021,0x00000000,0x00040047,0x00000011,0x0000001e,
-      0x00000000,0x00040047,0x00000015,0x0000001e,0x00000000,0x00020013,0x00000002,0x00030021,
-      0x00000003,0x00000002,0x00030016,0x00000006,0x00000020,0x00040017,0x00000007,0x00000006,
-      0x00000004,0x00040020,0x00000008,0x00000007,0x00000007,0x00090019,0x0000000a,0x00000006,
-      0x00000001,0x00000000,0x00000000,0x00000000,0x00000001,0x00000000,0x0003001b,0x0000000b,
-      0x0000000a,0x00040020,0x0000000c,0x00000000,0x0000000b,0x0004003b,0x0000000c,0x0000000d,
-      0x00000000,0x00040017,0x0000000f,0x00000006,0x00000002,0x00040020,0x00000010,0x00000001,
-      0x0000000f,0x0004003b,0x00000010,0x00000011,0x00000001,0x00040020,0x00000014,0x00000003,
-      0x00000007,0x0004003b,0x00000014,0x00000015,0x00000003,0x00050036,0x00000002,0x00000004,
-      0x00000000,0x00000003,0x000200f8,0x00000005,0x0004003b,0x00000008,0x00000009,0x00000007,
-      0x0004003d,0x0000000b,0x0000000e,0x0000000d,0x0004003d,0x0000000f,0x00000012,0x00000011,
-      0x00050057,0x00000007,0x00000013,0x0000000e,0x00000012,0x0003003e,0x00000009,0x00000013,
-      0x0004003d,0x00000007,0x00000016,0x00000009,0x00050051,0x00000006,0x00000017,0x00000016,
-      0x00000000,0x00050051,0x00000006,0x00000018,0x00000016,0x00000001,0x00050051,0x00000006,
-      0x00000019,0x00000016,0x00000002,0x00050051,0x00000006,0x0000001a,0x00000016,0x00000003,
-      0x00070050,0x00000007,0x0000001b,0x00000017,0x00000018,0x00000019,0x0000001a,0x0003003e,
-      0x00000015,0x0000001b,0x000100fd,0x00010038
-    };
 
     struct VkWindowData
     {
@@ -116,23 +52,17 @@ namespace nyx
       
       static constexpr Vertex   vertex_data[] = { { -1.0f, -1.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { -1.0f, 1.0f, 0.0f, 1.0f } } ;
       static constexpr unsigned index_data [] = { 0, 1, 3, 1, 2, 3 } ;
+      nyx::Renderer<Impl, nyx::ImageFormat::RGBA8> renderer ;
+      
       nyx::EventManager                manager     ;
-      nyx::List<Impl::Synchronization> syncs       ; ///< The synchronization objects to use for this object's synchronization.
-      nyx::List<Impl::CommandRecord  > cmds        ; ///< The command buffers to record commands into.
-      nyx::List<Impl::Descriptor     > descriptors ; ///< The descriptors to use for rendering.
       iris::Bus                        bus         ; ///< The bus to communicate over.
       nyx::RGBAImage<Impl>             image       ; ///< The staging image.
       Impl::Array<Vertex>              vertices    ; ///< The vertices to use for drawing.
       Impl::Array<unsigned>            indices     ; ///< The indices to use for drawing.
+      Impl::Queue                      queue       ; ///< The queue to use for gpu operations.
       unsigned                         device      ; ///< The device to use for all vulkan calls.
       vk::SurfaceKHR                   vk_surface  ; ///< The surface to use for generating a device.
       nyx::Window<Impl>                window      ; ///< The implementation window object.
-      Impl::DescriptorPool             pool        ; ///< The pool to grab descriptors from.
-      Impl::Pipeline                   pipeline    ; ///< The pipeline to use for rendering.
-      Impl::Shader                     shader      ; ///< The object to contain all GPU Shader data.
-      Impl::Queue                      queue       ; ///< The present queue to use for swapchain creation.
-      Impl::Swapchain                  swapchain   ; ///< The swapchain object to manage rendering to this window.
-      Impl::RenderPass                 pass        ; ///< The render pass object to use for handle drawing to the window.
       std::string                      title       ; ///< The string title of this window.
       unsigned                         width       ; ///< The width of this window in pixels.
       unsigned                         height      ; ///< The height of this window in pixels.
@@ -168,11 +98,6 @@ namespace nyx
        */
       void initBuffers() ;
       
-      /** Method to remake the object needed for a recreated swapchain.
-       */
-      void remakeObjects() ;
-      
-
       /** Method to input an image to draw to this window's current vulkan swapchain image.
        * @param The image to draw to this object.
        */
@@ -232,29 +157,10 @@ namespace nyx
       }
     }
 
-    void VkWindowData::remakeObjects()
-    {
-      this->pass     .reset() ;
-      this->pipeline .reset() ;
-      this->cmds     .reset() ;
-      
-      this->pass.setScissorExtentX(   this->window.width () ) ;
-      this->pass.setScissorExtentY(   this->window.height() ) ;
-      this->pass.setViewportWidth (0, this->window.width () ) ;
-      this->pass.setViewportHeight(0, this->window.height() ) ;
-
-      this->pass    .initialize( this->swapchain                                  ) ;
-      this->pipeline.initialize( this->pass, this->shader                         ) ;
-      this->cmds    .initialize( this->pass.numFramebuffers() + 1, this->queue, 1 ) ;
-    }
-
     void VkWindowData::initBuffers()
     {
       Impl::Array<Vertex  > staging_1 ;
       Impl::Array<unsigned> staging_2 ;
-      Impl::CommandRecord   cmd_buff  ;
-      
-      cmd_buff.initialize( this->queue, 1 ) ;
       
       staging_1.initialize( device, 4, true, nyx::ArrayFlags::TransferSrc ) ;
       staging_2.initialize( device, 6, true, nyx::ArrayFlags::TransferSrc ) ;
@@ -264,17 +170,10 @@ namespace nyx
       staging_1.copyToDevice( this->vertex_data, 4 ) ;
       staging_2.copyToDevice( this->index_data , 6 ) ;
 
-      cmd_buff.record() ;
-      this->vertices.copy( staging_1, cmd_buff, 4 ) ;
-      this->indices .copy( staging_2, cmd_buff, 6 ) ;
-      cmd_buff.stop() ;
-      
-      this->queue.submit( cmd_buff ) ;
+      this->vertices.copy( staging_1, 4, this->queue ) ;
+      this->indices .copy( staging_2, 6, this->queue ) ;
       this->image.transition( nyx::ImageLayout::ShaderRead, this->queue ) ;
       Impl::deviceSynchronize( this->device ) ;
-      staging_1.reset() ;
-      staging_2.reset() ;
-      cmd_buff .reset() ;
     }
 
     void VkWindowData::setInputName( unsigned idx, const char* name )
@@ -293,7 +192,12 @@ namespace nyx
     void VkWindowData::draw( const nyx::RGBAImage<Impl>& image )
     {
       this->mutex.lock() ;
-      this->image.resize( image.width(), image.height() ) ;
+      
+      if( this->image.resize( image.width(), image.height() ) )
+      {
+        this->renderer.bind( "framebuffer", this->image ) ;
+      }
+
       this->image.copy( image, this->queue ) ;
       this->mutex.unlock() ;
     }
@@ -321,8 +225,8 @@ namespace nyx
       this->module_data = new VkWindowData() ;
       
       Impl::addDeviceExtension  ( "VK_KHR_swapchain"                        ) ;
-      Impl::addInstanceExtension( Impl::platformSurfaceInstanceExtensions() ) ;
       Impl::addInstanceExtension( "VK_KHR_surface"                          ) ;
+      Impl::addInstanceExtension( Impl::platformSurfaceInstanceExtensions() ) ;
     }
 
     VkWindow::~VkWindow()
@@ -333,39 +237,14 @@ namespace nyx
     void VkWindow::initialize()
     {
       data().window.initialize( data().title.c_str(), data().width, data().height ) ;
-      
       data().vk_surface = data().window.context() ;
-      
-      data().syncs.initialize( data().pass.numFramebuffers() + 1, data().device, 0  ) ;
-      
-      data().queue = Impl::presentQueue( data().vk_surface, data().device ) ;
-      data().pass.setAttachmentStore( true, 0 ) ;
-      data().pass.setFinalLayout      ( nyx::ImageLayout::PresentSrc   ) ;
-      data().pass.setScissorExtentX   ( data().width                   ) ;
-      data().pass.setScissorExtentY   ( data().height                  ) ;
-      data().pass.setClearColor       ( 0.0f, 0.0f, 0.0f, 1.0f         ) ;
-      data().shader.initialize( data().device, nyx::bytes::window, sizeof( nyx::bytes::window ) ) ;
-      data().shader     .initialize( data().device                                                      ) ;
-      data().pool       .initialize( data().shader, 50                                                  ) ;
-      data().swapchain  .initialize( data().queue, data().vk_surface                                    ) ;
-      data().pass       .initialize( data().swapchain                                                   ) ;
-      data().pipeline   .initialize( data().pass, data().shader                                         ) ;
-      data().cmds       .initialize( data().pass.numFramebuffers() + 1, data().queue, 1                 ) ;
-      data().descriptors.initialize( 50, data().pool                                                    ) ;
-      data().image      .initialize( data().device, data().swapchain.width(), data().swapchain.height() ) ;
+      data().queue      = Impl::graphicsQueue( data().device ) ;
+      data().renderer .initialize( data().device, nyx::bytes::window, sizeof( nyx::bytes::window ), data().vk_surface ) ;
+      data().image    .initialize( data().device, data().window.width(), data().window.height()                       ) ;
       
       data().initBuffers() ;
       
-      for( unsigned i = 0; i < 50; i++ )
-      { 
-        data().descriptors.current().set( "framebuffer", data().image ) ;
-        data().descriptors.advance() ;
-      }
-
-      if( data().swapchain.acquire() == Impl::Error::RecreateSwapchain )
-      {
-        data().remakeObjects() ;
-      }
+      data().renderer.bind( "framebuffer", data().image ) ;
 
       Impl::deviceSynchronize( data().device ) ;
     }
@@ -373,7 +252,6 @@ namespace nyx
     void VkWindow::subscribe( unsigned id )
     {
       using IMPL = nyx::vkg::Vulkan ;
-      
       
       data().module_name = this->name() ;
       data().bus.setChannel( id ) ;
@@ -392,9 +270,8 @@ namespace nyx
 
     void VkWindow::shutdown()
     {
-      data().cmds  .reset() ;
-      data().syncs .reset() ;
-      data().window.reset() ;
+      data().window  .reset() ;
+//      data().renderer.reset() ;
     }
 
     void VkWindow::execute()
@@ -405,30 +282,8 @@ namespace nyx
       iris::log::Log::output( this->name(), " copying image to window." ) ;
       data().window.handleEvents() ;
       
-      data().cmds.current().record( data().pass, data().swapchain.current() ) ;
-      data().cmds.current().bind( data().pipeline    ) ;
-      data().cmds.current().bind( data().descriptors ) ;
-      data().cmds.current().drawIndexed( data().indices, data().vertices ) ;
-      data().cmds.current().stop() ;
-      
-      data().queue.submit( data().cmds  ) ;
-
-      if( data().swapchain.submit() == Impl::Error::RecreateSwapchain )
-      {
-        data().remakeObjects() ;
-      }
-      
-      data().syncs.current().clear() ;
-      
-      data().syncs      .advance() ;
-      data().cmds       .advance() ;
-      data().descriptors.advance() ;
-      
-      if( data().swapchain.acquire() == Impl::Error::RecreateSwapchain)
-      {
-        data().remakeObjects() ;
-      }
-      
+      data().renderer.drawIndexed( data().indices, data().vertices ) ;
+      data().renderer.finalize() ;
       data().mutex.unlock() ;
 
       data().bus.emit() ;
