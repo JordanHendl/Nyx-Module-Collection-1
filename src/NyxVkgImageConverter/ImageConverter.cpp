@@ -214,12 +214,11 @@ namespace nyx
 
     void ImageConverter::initialize()
     {
-      data().staging_buffer.initialize( data().device, data().staging_size, true, nyx::ArrayFlags::TransferSrc ) ;
       data().queue = Impl::graphicsQueue() ;
       data().cmds .initialize( 20, data().queue, 1  ) ;
       data().syncs.initialize( 20, data().device, 0 ) ;
       data().staging_buffer.reset() ;
-      data().staging_buffer.initialize( data().device, data().staging_size, true, nyx::ArrayFlags::TransferSrc ) ;
+      data().staging_buffer.initialize( data().device, data().staging_size, true, nyx::ArrayFlags::TransferSrc | nyx::ArrayFlags::TransferDst ) ;
     }
 
     void ImageConverter::subscribe( unsigned id )
@@ -260,16 +259,14 @@ namespace nyx
         // Resize image to desired dimensions.
         data().converted_img.resize( data().width, data().height ) ;
         
-        if( data().staging_buffer.size() > img_size )
-        {
-          data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
-          data().converted_img.copy( data().staging_buffer, data().queue ) ;
-        }
-        else
+        if( data().staging_buffer.size() <= img_size )
         {
           data().staging_buffer.reset() ;
-          data().staging_buffer.initialize( data().device, img_size + 10000, true, nyx::ArrayFlags::TransferSrc ) ;
+          data().staging_buffer.initialize( data().device, img_size + 10000, true, nyx::ArrayFlags::TransferSrc | nyx::ArrayFlags::TransferDst ) ;
         }
+
+        data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
+        data().converted_img.copy( data().staging_buffer, data().queue ) ;
         
         data().cmds.advance() ;
         timer.stop() ;

@@ -24,7 +24,6 @@
 #include <nyx/vkg/Device.h>
 #include <iris/data/Bus.h>
 #include <vector>
-#include <vulkan/vulkan.hpp>
 #include <map>
 #include <mutex>
 

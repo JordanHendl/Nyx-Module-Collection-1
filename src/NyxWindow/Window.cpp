@@ -28,7 +28,6 @@
 #include <iris/data/Bus.h>
 #include <iris/log/Log.h>
 #include <vector>
-#include <vulkan/vulkan.hpp>
 #include <string>
 #include <mutex>
 
@@ -39,9 +38,14 @@ namespace nyx
   namespace vkg
   {
     using Impl = nyx::vkg::Vulkan ;
-
+    using Log  = iris::log::Log   ;
+    
+    /** Structure to contain a window module's data.
+     */
     struct VkWindowData
     {
+      /** Object to encapsulate a vertex for this object's render pass.
+       */
       struct Vertex
       {
         float x  ;
@@ -50,25 +54,29 @@ namespace nyx
         float ty ;
       };
       
-      static constexpr Vertex   vertex_data[] = { { -1.0f, -1.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { -1.0f, 1.0f, 0.0f, 1.0f } } ;
-      static constexpr unsigned index_data [] = { 0, 1, 3, 1, 2, 3 } ;
-      nyx::Renderer<Impl, nyx::ImageFormat::RGBA8> renderer ;
+      /** The vertex data of this object.
+       */
+      static constexpr Vertex vertex_data[] = { { -1.0f, -1.0f, 0.0f, 0.0f }, { 1.0f, -1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { -1.0f, 1.0f, 0.0f, 1.0f } } ;
       
-      nyx::EventManager                manager     ;
-      iris::Bus                        bus         ; ///< The bus to communicate over.
-      nyx::RGBAImage<Impl>             image       ; ///< The staging image.
-      Impl::Array<Vertex>              vertices    ; ///< The vertices to use for drawing.
-      Impl::Array<unsigned>            indices     ; ///< The indices to use for drawing.
-      Impl::Queue                      queue       ; ///< The queue to use for gpu operations.
-      unsigned                         device      ; ///< The device to use for all vulkan calls.
-      vk::SurfaceKHR                   vk_surface  ; ///< The surface to use for generating a device.
-      nyx::Window<Impl>                window      ; ///< The implementation window object.
-      std::string                      title       ; ///< The string title of this window.
-      unsigned                         width       ; ///< The width of this window in pixels.
-      unsigned                         height      ; ///< The height of this window in pixels.
-      std::string                      module_name ; ///< The name of this module.
-      std::mutex                       mutex       ; ///< Mutex to ensure images and synchronizations arent set while this module is processing.
-      bool                             should_exit ;
+      /** The index data of this object.
+       */
+      static constexpr unsigned index_data [] = { 0, 1, 3, 1, 2, 3 } ;
+      
+      nyx::Renderer<Impl, nyx::ImageFormat::RGBA8> renderer    ; ///< The renderer to use for drawing to this object.
+      nyx::Viewport                                viewport    ; ///< The main viewport of the scene.
+      nyx::EventManager                            manager     ; ///< The object to manage events produced from this window.
+      nyx::Window<Impl>                            window      ; ///< The implementation window object.
+      nyx::RGBAImage<Impl>                         image       ; ///< The staging image.
+      Impl::Array<Vertex>                          vertices    ; ///< The vertices to use for drawing.
+      Impl::Array<unsigned>                        indices     ; ///< The indices to use for drawing.
+      Impl::Queue                                  queue       ; ///< The queue to use for gpu operations.
+      iris::Bus                                    bus         ; ///< The bus to communicate over.
+      unsigned                                     device      ; ///< The device to use for all vulkan calls.
+      std::string                                  title       ; ///< The string title of this window.
+      unsigned                                     width       ; ///< The width of this window in pixels.
+      unsigned                                     height      ; ///< The height of this window in pixels.
+      std::string                                  module_name ; ///< The name of this module.
+      bool                                         should_exit ; ///< Whether or not this object should quit the iris engine when it's exit button it pressed.
 
       /** Default constructor.
        */
@@ -76,7 +84,6 @@ namespace nyx
 
       /** Method to set the device for this object to use.
        * @param id The id of device created.
-       * @param device The const-reference to the device.
        */
       void setDevice( unsigned id ) ;
       
@@ -131,11 +138,11 @@ namespace nyx
     
     VkWindowData::VkWindowData()
     {
-      this->should_exit = false        ;
-      this->width       = 1024         ;
-      this->height      = 720          ;
-      this->title       = "OGM_Window" ;
-      this->device      = 0            ;
+      this->should_exit = false    ;
+      this->width       = 1024     ;
+      this->height      = 720      ;
+      this->title       = "Window" ;
+      this->device      = 0        ;
     }
     
     bool VkWindowData::exit()
@@ -159,19 +166,12 @@ namespace nyx
 
     void VkWindowData::initBuffers()
     {
-      Impl::Array<Vertex  > staging_1 ;
-      Impl::Array<unsigned> staging_2 ;
-      
-      staging_1.initialize( device, 4, true, nyx::ArrayFlags::TransferSrc ) ;
-      staging_2.initialize( device, 6, true, nyx::ArrayFlags::TransferSrc ) ;
-      this->vertices.initialize( device, 4, false, nyx::ArrayFlags::Vertex | nyx::ArrayFlags::TransferDst ) ;
-      this->indices .initialize( device, 6, false, nyx::ArrayFlags::Index  | nyx::ArrayFlags::TransferDst ) ;
-      
-      staging_1.copyToDevice( this->vertex_data, 4 ) ;
-      staging_2.copyToDevice( this->index_data , 6 ) ;
+      this->vertices.initialize( this->device, sizeof( this->vertex_data ) / sizeof( Vertex   ), true, nyx::ArrayFlags::Vertex | nyx::ArrayFlags::TransferDst ) ;
+      this->indices .initialize( this->device, sizeof( this->index_data  ) / sizeof( unsigned ), true, nyx::ArrayFlags::Index  | nyx::ArrayFlags::TransferDst ) ;
 
-      this->vertices.copy( staging_1, 4, this->queue ) ;
-      this->indices .copy( staging_2, 6, this->queue ) ;
+      this->vertices.copyToDevice( this->vertex_data, sizeof( this->vertex_data ) / sizeof( Vertex   ) ) ;
+      this->indices .copyToDevice( this->index_data , sizeof( this->index_data  ) / sizeof( unsigned ) ) ;
+      
       this->image.transition( nyx::ImageLayout::ShaderRead, this->queue ) ;
       Impl::deviceSynchronize( this->device ) ;
     }
@@ -191,27 +191,26 @@ namespace nyx
     
     void VkWindowData::draw( const nyx::RGBAImage<Impl>& image )
     {
-      this->mutex.lock() ;
-      
       if( this->image.resize( image.width(), image.height() ) )
       {
         this->renderer.bind( "framebuffer", this->image ) ;
       }
 
       this->image.copy( image, this->queue ) ;
-      this->mutex.unlock() ;
     }
     
     void VkWindowData::setWidth( unsigned width )
     {
       this->width = width ;
-      this->window.setWidth( width ) ;
+      this->viewport.setWidth( width ) ;
+      this->window  .setWidth( width ) ;
     }
     
     void VkWindowData::setHeight( unsigned height )
     {
       this->height = height ;
-      this->window.setHeight( height ) ;
+      this->window  .setHeight( height ) ;
+      this->viewport.setHeight( height ) ;
     }
     
     void VkWindowData::setTitle( const char* title )
@@ -236,11 +235,14 @@ namespace nyx
 
     void VkWindow::initialize()
     {
-      data().window.initialize( data().title.c_str(), data().width, data().height ) ;
-      data().vk_surface = data().window.context() ;
-      data().queue      = Impl::graphicsQueue( data().device ) ;
-      data().renderer .initialize( data().device, nyx::bytes::window, sizeof( nyx::bytes::window ), data().vk_surface ) ;
-      data().image    .initialize( data().device, data().window.width(), data().window.height()                       ) ;
+      data().queue = Impl::graphicsQueue( data().device ) ;
+
+      data().renderer .addViewport( data().viewport ) ;
+      data().renderer .setDimensions( data().width, data().height ) ;
+      
+      data().window   .initialize( data().title.c_str(), data().width, data().height                                        ) ;
+      data().image    .initialize( data().device, data().width, data().height                                               ) ;
+      data().renderer .initialize( data().device, nyx::bytes::window, sizeof( nyx::bytes::window ), data().window.context() ) ;
       
       data().initBuffers() ;
       
@@ -251,13 +253,11 @@ namespace nyx
 
     void VkWindow::subscribe( unsigned id )
     {
-      using IMPL = nyx::vkg::Vulkan ;
-      
       data().module_name = this->name() ;
       data().bus.setChannel( id ) ;
-      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setBorderless, iris::OPTIONAL, this->name(), "::borderless" ) ;
-      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setFullscreen, iris::OPTIONAL, this->name(), "::fullscreen" ) ;
-      data().bus.enroll( &data().window   , &nyx::Window<IMPL>::setResizable , iris::OPTIONAL, this->name(), "::resizable"  ) ;
+      data().bus.enroll( &data().window   , &nyx::Window<Impl>::setBorderless, iris::OPTIONAL, this->name(), "::borderless" ) ;
+      data().bus.enroll( &data().window   , &nyx::Window<Impl>::setFullscreen, iris::OPTIONAL, this->name(), "::fullscreen" ) ;
+      data().bus.enroll( &data().window   , &nyx::Window<Impl>::setResizable , iris::OPTIONAL, this->name(), "::resizable"  ) ;
       data().bus.enroll( this->module_data, &VkWindowData::setInputName      , iris::OPTIONAL, this->name(), "::inputs"     ) ;
       data().bus.enroll( this->module_data, &VkWindowData::setWidth          , iris::OPTIONAL, this->name(), "::width"      ) ;
       data().bus.enroll( this->module_data, &VkWindowData::setDevice         , iris::OPTIONAL, this->name(), "::device"     ) ;
@@ -278,13 +278,11 @@ namespace nyx
     {
       data().bus.wait() ;
       
-      data().mutex.lock() ;
-      iris::log::Log::output( this->name(), " copying image to window." ) ;
+      Log::output( this->name(), " copying image to window." ) ;
       data().window.handleEvents() ;
       
       data().renderer.drawIndexed( data().indices, data().vertices ) ;
       data().renderer.finalize() ;
-      data().mutex.unlock() ;
 
       data().bus.emit() ;
     }
