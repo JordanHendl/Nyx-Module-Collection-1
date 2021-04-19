@@ -21,17 +21,19 @@ namespace nyx
 {
   namespace vkg
   {
-    class Window : public iris::Module
+    /** A module for managing converting images on the host to Vulkan images on the GPU.
+     */
+    class NyxDrawModel : public ::iris::Module
     {
       public:
         
         /** Default Constructor.
          */
-        Window() ;
+        NyxDrawModel() ;
 
         /** Virtual deconstructor. Needed for inheritance.
          */
-        ~Window() ;
+        ~NyxDrawModel() ;
 
         /** Method to initialize this module after being configured.
          */
@@ -54,17 +56,17 @@ namespace nyx
         
         /** Forward-declared structure to contain this object's internal data.
          */
-        struct NyxWindowData *module_data ;
+        struct NyxDrawModelData *module_data ;
 
         /** Method to retrieve a reference to this object's internal data.
          * @return Reference to this object's internal data.
          */
-        NyxWindowData& data() ;
+        NyxDrawModelData& data() ;
         
         /** Method to retrieve a const-reference to this object's internal data.
          * @return Const-reference to this object's internal data.
          */
-        const NyxWindowData& data() const ;
+        const NyxDrawModelData& data() const ;
     };
   }
 }

@@ -15,13 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Vulkan.h"
-#include <nyx/vkg/Instance.h>
-#include <nyx/vkg/CommandBuffer.h>
-#include <nyx/vkg/Queue.h>
-#include <nyx/template/List.h>
-#include <nyx/vkg/Vulkan.h>
-#include <nyx/vkg/Device.h>
+#include "Debug.h"
+#include <nyxgpu/vkg/Instance.h>
+#include <nyxgpu/vkg/CommandBuffer.h>
+#include <nyxgpu/vkg/Queue.h>
+#include <nyxgpu/vkg/Vulkan.h>
+#include <nyxgpu/vkg/Device.h>
 #include <iris/data/Bus.h>
 #include <vector>
 #include <map>
@@ -59,42 +58,42 @@ namespace nyx
       Vulkan::addValidationLayer( validation_layer ) ;
     }
 
-    VkModule::VkModule()
+    Debug::Debug()
     {
       this->module_data = new VkModuleData() ;
     }
 
-    VkModule::~VkModule()
+    Debug::~Debug()
     {
       delete this->module_data ;
     }
 
-    void VkModule::initialize()
+    void Debug::initialize()
     {
       nyx::vkg::Vulkan::initialize() ;
     }
 
-    void VkModule::subscribe( unsigned id )
+    void Debug::subscribe( unsigned id )
     {
       data().bus.setChannel( id ) ;
       data().bus.enroll( this->module_data, &VkModuleData::addValidationLayer, iris::OPTIONAL, this->name(), "::validation_layers"  ) ;
     }
 
-    void VkModule::shutdown()
+    void Debug::shutdown()
     {
     }
 
-    void VkModule::execute()
+    void Debug::execute()
     {
       data().bus.wait() ;
     }
 
-    VkModuleData& VkModule::data()
+    VkModuleData& Debug::data()
     {
       return *this->module_data ;
     }
 
-    const VkModuleData& VkModule::data() const
+    const VkModuleData& Debug::data() const
     {
       return *this->module_data ;
     }
@@ -106,7 +105,7 @@ namespace nyx
  */
 exported_function const char* name()
 {
-  return "Vulkan" ;
+  return "NyxDebug" ;
 }
 
 /** Exported function to retrieve the version of this module.
@@ -122,7 +121,7 @@ exported_function unsigned version()
  */
 exported_function ::iris::Module* make()
 {
-  return new ::nyx::vkg::VkModule() ;
+  return new ::nyx::vkg::Debug() ;
 }
 
 /** Exported function to destroy an instance of this module.
@@ -130,8 +129,8 @@ exported_function ::iris::Module* make()
  */
 exported_function void destroy( ::iris::Module* module )
 {
-  ::nyx::vkg::VkModule* mod ;
+  ::nyx::vkg::Debug* mod ;
   
-  mod = dynamic_cast<::nyx::vkg::VkModule*>( module ) ;
+  mod = dynamic_cast<::nyx::vkg::Debug*>( module ) ;
   delete mod ;
 }

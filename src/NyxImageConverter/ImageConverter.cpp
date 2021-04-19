@@ -26,10 +26,10 @@
 #include <iris/data/Bus.h>
 #include <iris/log/Log.h>
 #include <iris/profiling/Timer.h>
-#include <nyx/library/Array.h>
-#include <nyx/library/Image.h>
-#include <nyx/vkg/Vulkan.h>
-#include <nyx/template/List.h>
+#include <nyxgpu/library/Array.h>
+#include <nyxgpu/library/Image.h>
+#include <nyxgpu/library/Chain.h>
+#include <nyxgpu/vkg/Vulkan.h>
 #include <string>
 
 static const unsigned VERSION = 1 ;
@@ -41,36 +41,28 @@ namespace nyx
     using          Impl   = nyx::vkg::Vulkan        ;
     constexpr auto Format = nyx::ImageFormat::RGBA8 ;
     
-    struct ImageConverterData
+    struct NyxStartDraw
     {
-      nyx::List<Impl::CommandRecord>   cmds           ;
-      nyx::List<Impl::Synchronization> syncs          ;
-      Impl::Queue                      queue          ;
-      Impl::Image<Format>              converted_img  ;
-      Impl::Array<unsigned char>       staging_buffer ;
-      Impl::Synchronization            current        ;
-      unsigned                         device         ;
-      iris::Bus                        bus            ;
-      std::string                      name           ;
-      const unsigned char*             host_bytes     ;
-      unsigned                         width          ;
-      unsigned                         height         ;
-      unsigned                         channels       ;
-      unsigned                         staging_size   ;
+      nyx::Image<Impl>                converted_img  ;
+      nyx::Array<Impl, unsigned char> staging_buffer ;
+      nyx::Chain<Impl>                chain          ;
+      unsigned                        device         ;
+      iris::Bus                       bus            ;
+      std::string                     name           ;
+      const unsigned char*            host_bytes     ;
+      unsigned                        width          ;
+      unsigned                        height         ;
+      unsigned                        channels       ;
+      unsigned                        staging_size   ;
 
       /** Default constructor.
        */
-      ImageConverterData() ;
-      
-      /** Method to retrieve the latest secondary command buffer used by this module.
-       * @return The latest secondary command buffer used by this module.
-       */
-      const nyx::vkg::Synchronization& sync() ;
+      NyxStartDraw() ;
       
       /** Method to retrieve a const image from this object.
        * @return The const reference to this object's image object.
        */
-      const nyx::RGBAImage<Impl>& image() ;
+      const nyx::Image<Impl>& image() ;
       
       /** Method to set the output name to associate with this module's command buffers.
        * @param name The name to associate with this module's output.
@@ -118,7 +110,7 @@ namespace nyx
       void setHostBytes( const unsigned char* data ) ;
     };
     
-    ImageConverterData::ImageConverterData()
+    NyxStartDraw::NyxStartDraw()
     {
       this->width        = 0                                         ;
       this->height       = 0                                         ;
@@ -128,33 +120,21 @@ namespace nyx
       this->device       = 0                                         ;
     }
     
-    const nyx::RGBAImage<Impl>& ImageConverterData::image()
+    const nyx::Image<Impl>& NyxStartDraw::image()
     {
       return this->converted_img ;
     }
 
-    const nyx::vkg::Synchronization& ImageConverterData::sync()
-    {
-      this->current = this->syncs.current() ;
-      this->syncs.advance() ;
-      return this->current ;
-    }
-    
-    void ImageConverterData::setOutputSynchronizationName( const char* name )
-    {
-      this->bus.publish( this, &ImageConverterData::sync, name ) ;
-    }
-    
-    void ImageConverterData::setOutputName( unsigned idx, const char* name )
+    void NyxStartDraw::setOutputName( unsigned idx, const char* name )
     {
       switch( idx )
       {
-        case 0  : this->bus.publish( this, &ImageConverterData::image, name ) ;
+        case 0  : this->bus.publish( this, &NyxStartDraw::image, name ) ;
         default : break ;
       }
     }
     
-    void ImageConverterData::setStagingBufferSize( unsigned byte_size )
+    void NyxStartDraw::setStagingBufferSize( unsigned byte_size )
     {
       this->staging_size = byte_size ;
 
@@ -165,46 +145,46 @@ namespace nyx
       }
     }
     
-    void ImageConverterData::setInputName( unsigned idx, const char* name )
+    void NyxStartDraw::setInputName( unsigned idx, const char* name )
     {
       switch( idx )
       {
-        case 0 : this->bus.enroll( this, &ImageConverterData::setHostBytes  , iris::REQUIRED, name ) ; break ;
-        case 1 : this->bus.enroll( this, &ImageConverterData::setWidth      , iris::REQUIRED, name ) ; break ;
-        case 2 : this->bus.enroll( this, &ImageConverterData::setHeight     , iris::REQUIRED, name ) ; break ;
-        case 3 : this->bus.enroll( this, &ImageConverterData::setNumChannels, iris::REQUIRED, name ) ; break ;
+        case 0 : this->bus.enroll( this, &NyxStartDraw::setHostBytes  , iris::REQUIRED, name ) ; break ;
+        case 1 : this->bus.enroll( this, &NyxStartDraw::setWidth      , iris::REQUIRED, name ) ; break ;
+        case 2 : this->bus.enroll( this, &NyxStartDraw::setHeight     , iris::REQUIRED, name ) ; break ;
+        case 3 : this->bus.enroll( this, &NyxStartDraw::setNumChannels, iris::REQUIRED, name ) ; break ;
         default : break ;
       }
     }
     
-    void ImageConverterData::setDevice( unsigned id )
+    void NyxStartDraw::setDevice( unsigned id )
     {
       this->device = id ;
     }
     
-    void ImageConverterData::setWidth( unsigned width )
+    void NyxStartDraw::setWidth( unsigned width )
     {
       this->width = width ;
     }
     
-    void ImageConverterData::setHeight( unsigned height )
+    void NyxStartDraw::setHeight( unsigned height )
     {
       this->height = height ;
     }
     
-    void ImageConverterData::setNumChannels( unsigned num_channels )
+    void NyxStartDraw::setNumChannels( unsigned num_channels )
     {
       this->channels = num_channels ;
     }
     
-    void ImageConverterData::setHostBytes( const unsigned char* data )
+    void NyxStartDraw::setHostBytes( const unsigned char* data )
     {
       this->host_bytes = data ;
     }
     
     ImageConverter::ImageConverter()
     {
-      this->module_data = new ImageConverterData() ;
+      this->module_data = new NyxStartDraw() ;
     }
 
     ImageConverter::~ImageConverter()
@@ -214,19 +194,17 @@ namespace nyx
 
     void ImageConverter::initialize()
     {
-      data().queue = Impl::graphicsQueue() ;
-      data().cmds .initialize( 20, data().queue, 1  ) ;
-      data().syncs.initialize( 20, data().device, 0 ) ;
       data().staging_buffer.reset() ;
       data().staging_buffer.initialize( data().device, data().staging_size, true, nyx::ArrayFlags::TransferSrc | nyx::ArrayFlags::TransferDst ) ;
+      data().chain.initialize( data().device, nyx::ChainType::Compute ) ;
     }
 
     void ImageConverter::subscribe( unsigned id )
     {
       data().bus.setChannel( id ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setInputName , iris::OPTIONAL, this->name(), "::inputs"  ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setOutputName, iris::OPTIONAL, this->name(), "::outputs" ) ;
-      data().bus.enroll( this->module_data, &ImageConverterData::setDevice    , iris::OPTIONAL, this->name(), "::device"  ) ;
+      data().bus.enroll( this->module_data, &NyxStartDraw::setInputName , iris::OPTIONAL, this->name(), "::inputs"  ) ;
+      data().bus.enroll( this->module_data, &NyxStartDraw::setOutputName, iris::OPTIONAL, this->name(), "::outputs" ) ;
+      data().bus.enroll( this->module_data, &NyxStartDraw::setDevice    , iris::OPTIONAL, this->name(), "::device"  ) ;
     }
 
     void ImageConverter::shutdown()
@@ -234,8 +212,6 @@ namespace nyx
       Impl::deviceSynchronize( data().device ) ;
       data().converted_img .reset() ;
       data().staging_buffer.reset() ;
-      data().syncs         .reset() ;
-      data().cmds          .reset() ;
     }
 
     void ImageConverter::execute()
@@ -252,8 +228,7 @@ namespace nyx
         
         if( !data().converted_img.initialized() )
         {
-          data().converted_img.initialize( data().device, data().width, data().height, 1 ) ;
-          data().converted_img.transition( nyx::ImageLayout::TransferSrc, data().queue ) ;
+          data().converted_img.initialize( nyx::ImageFormat::RGBA8, data().device, data().width, data().height, 1 ) ;
         }
         
         // Resize image to desired dimensions.
@@ -265,21 +240,23 @@ namespace nyx
           data().staging_buffer.initialize( data().device, img_size + 10000, true, nyx::ArrayFlags::TransferSrc | nyx::ArrayFlags::TransferDst ) ;
         }
 
-        data().staging_buffer.copyToDevice( data().host_bytes, img_size ) ; 
-        data().converted_img.copy( data().staging_buffer, data().queue ) ;
-        
-        data().cmds.advance() ;
+        data().chain.transition( data().converted_img, nyx::ImageLayout::TransferSrc ) ;
+        data().chain.copy( data().host_bytes, data().staging_buffer, img_size ) ;
+        data().chain.copy( data().staging_buffer, data().converted_img        ) ;
+        data().chain.transition( data().converted_img, nyx::ImageLayout::ShaderRead ) ;
+        data().chain.submit() ;
+        data().chain.synchronize() ;
         timer.stop() ;
         data().bus.emit() ;
       }
     }
 
-    ImageConverterData& ImageConverter::data()
+    NyxStartDraw& ImageConverter::data()
     {
       return *this->module_data ;
     }
 
-    const ImageConverterData& ImageConverter::data() const
+    const NyxStartDraw& ImageConverter::data() const
     {
       return *this->module_data ;
     }
@@ -291,7 +268,7 @@ namespace nyx
  */
 exported_function const char* name()
 {
-  return "Vulkan Image Converter" ;
+  return "NyxImageConverter" ;
 }
 
 /** Exported function to retrieve the version of this module.

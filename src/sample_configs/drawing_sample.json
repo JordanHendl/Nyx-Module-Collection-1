@@ -1,0 +1,68 @@
+{
+  "graph_1" :
+  {
+    "Modules" : 
+    {
+      "nyx_debug" :
+      {
+        "type" : "NyxDebug", 
+        "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
+      },
+      "nyx_window" :
+      {
+        "type"      : "NyxWindow",
+        "width"     : 1280,
+        "height"    : 720,
+        "title"     : "NyxWindow",
+        "quit_iris" : true,
+        "id"        : 0
+      },
+      "nyx_camera" :
+      {
+        "type"    : "NyxCamera",
+        "outputs" : [ "nyx_camera_input" ],
+        "lookat"  : "look_at_this"
+      },
+      "nyx_begin" :
+      {
+        "type"          : "NyxStartDraw",
+        "wait_on"       : "presented",
+        "finish_signal" : "render_pass_finish",
+        "device"        : 0,
+        "width"         : 1280,
+        "height"        : 720,
+        "outputs"       : [ "draw1" ],
+        "projection"    : "nyx_begin_projection",
+        "subpasses"     : [ 
+                            {
+                              "depth_enable" : true,
+                              "attachments"  : [ 
+                                                 { "format" : "RGBA8", "stencil_clear" : true, "layout" : "Color", "clear_color" : [ 0.5, 0.2, 0.3, 0.5 ] }
+                                               ]
+                            }
+                          ]
+      },
+      "nyx_draw_model" :
+      {
+        "type"          : "NyxDrawModel",
+        "wait_on"       : "render_pass_finish",
+        "pipeline"      : "/wksp/test/iris_test/shaders/draw_model.nyx",
+        "finish_signal" : "model_1_finish",
+        "outputs"       : [ "model_1_remade" ],
+        "parent"        : "draw1",
+        "projection"    : "nyx_begin_projection",
+        "camera"        : "nyx_camera_input",
+        "model_input"   : "input_models_here",
+        "model_remove"  : "remove_models_here", 
+        "device"        : 0
+      },
+      "nyx_end"   :
+      {
+        "type"          : "NyxEndDraw",
+        "draw_inputs"   : [ "model_1_remade" ],
+        "wait_on"       : [ "model_1_finish" ],
+        "finish_signal" : "presented"
+      }
+    }
+  }
+}

@@ -56,17 +56,17 @@ namespace nyx
         
         /** Forward-declared structure to contain this object's internal data.
          */
-        struct ImageConverterData *module_data ;
+        struct NyxStartDraw *module_data ;
 
         /** Method to retrieve a reference to this object's internal data.
          * @return Reference to this object's internal data.
          */
-        ImageConverterData& data() ;
+        NyxStartDraw& data() ;
         
         /** Method to retrieve a const-reference to this object's internal data.
          * @return Const-reference to this object's internal data.
          */
-        const ImageConverterData& data() const ;
+        const NyxStartDraw& data() const ;
     };
   }
 }

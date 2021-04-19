@@ -22,17 +22,17 @@ namespace nyx
 {
   namespace vkg
   {
-    class VkModule : public ::iris::Module
+    class Debug : public ::iris::Module
     {
       public:
         
         /** Default Constructor.
          */
-        VkModule() ;
+        Debug() ;
 
         /** Virtual deconstructor. Needed for inheritance.
          */
-        ~VkModule() ;
+        ~Debug() ;
 
         /** Method to initialize this module after being configured.
          */

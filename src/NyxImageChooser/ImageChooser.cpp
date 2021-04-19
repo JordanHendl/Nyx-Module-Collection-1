@@ -23,8 +23,8 @@
  */
 
 #include "ImageChooser.h"
-#include <nyx/library/Image.h>
-#include <nyx/vkg/Vulkan.h>
+#include <nyxgpu/library/Image.h>
+#include <nyxgpu/vkg/Vulkan.h>
 #include <iris/data/Bus.h>
 #include <iris/log/Log.h>
 
@@ -37,16 +37,16 @@ namespace nyx
     iris::Bus bus    ;
     unsigned  choice ;
 
-    const nyx::Image<Impl, ImageFormat::RGBA8>* rgba8_image ;
+    const nyx::Image<Impl>* rgba8_image ;
     
     ImageChooserData() ;
     void setInputName( unsigned idx, const char* name ) ;
     void setOutputName( const char* name ) ;
     
-    const nyx::Image<Impl, ImageFormat::RGBA8>& output() ;
+    const nyx::Image<Impl>& output() ;
 
     template<unsigned index>
-    void input( const nyx::Image<Impl, ImageFormat::RGBA8>& image ) ;
+    void input( const nyx::Image<Impl>& image ) ;
     void setChoice( unsigned index ) ;
   };
 
@@ -56,7 +56,7 @@ namespace nyx
     this->rgba8_image = nullptr ;
   }
   
-  const nyx::Image<vkg::Vulkan, ImageFormat::RGBA8>& ImageChooserData::output()
+  const nyx::Image<vkg::Vulkan>& ImageChooserData::output()
   {
     return *this->rgba8_image ;
   }
@@ -93,7 +93,7 @@ namespace nyx
   }
 
   template<unsigned index>
-  void ImageChooserData::input( const nyx::Image<Impl,ImageFormat::RGBA8>& image )
+  void ImageChooserData::input( const nyx::Image<Impl>& image )
   {
     if( this->choice == index )
     {
@@ -152,7 +152,7 @@ namespace nyx
  */
 exported_function const char* name()
 {
-  return "Image Chooser" ;
+  return "NyxImageChooser" ;
 }
 
 /** Exported function to retrieve the version of this module.

@@ -21,16 +21,14 @@
  *
  * Created on January 2, 2021, 5:43 PM
  */
-#include "Window.h"
-#include <nyx/vkg/Device.h>
-#include <nyx/vkg/Instance.h>
-#include <iris/data/Bus.h>
-//#include <vulkan/vulkan.hpp>
-#include <iostream>
-#include <string>
+//#include "Window.h"
+//#include <iris/data/Bus.h>
+////#include <vulkan/vulkan.hpp>
+//#include <iostream>
+//#include <string>
 
 //vk::SurfaceKHR vk_surface ;
-bool got_surface = false ;
+//bool got_surface = false ;
 //void setSurface( const vk::SurfaceKHR& surface )
 //{
 //  vk_surface = surface ;
@@ -39,8 +37,8 @@ bool got_surface = false ;
 
 int main() 
 {
-  nyx::vkg::VkWindow module ;
-  iris::Bus          bus    ;
+//  nyx::vkg::VkWindow module ;
+//  iris::Bus          bus    ;
   
 //  bus.enroll( &setSurface, "name::surface" ) ;
 //  module.setName( "name" ) ;
@@ -55,7 +53,7 @@ int main()
     return 0 ;
 //  }
   
-  std::cout << "Module failed to create or send window & surface data." << std::endl ;
-  return 1 ;
+//  std::cout << "Module failed to create or send window & surface data." << std::endl ;
+//  return 1 ;
 }
 
