@@ -55,17 +55,17 @@ namespace nyx
         
         /** Forward-declared structure to contain this object's internal data.
          */
-        struct VkModuleData *module_data ;
+        struct DebugData *module_data ;
 
         /** Method to retrieve a reference to this object's internal data.
          * @return Reference to this object's internal data.
          */
-        VkModuleData& data() ;
+        DebugData& data() ;
         
         /** Method to retrieve a const-reference to this object's internal data.
          * @return Const-reference to this object's internal data.
          */
-        const VkModuleData& data() const ;
+        const DebugData& data() const ;
     };
   }
 }

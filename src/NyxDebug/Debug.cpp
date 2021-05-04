@@ -31,7 +31,7 @@ namespace nyx
 {
   namespace vkg
   {
-    struct VkModuleData
+    struct DebugData
     {
       using ValidationLayers = std::vector<std::string> ;
 
@@ -39,7 +39,7 @@ namespace nyx
 
       /** Default constructor.
        */
-      VkModuleData() ;
+      DebugData() ;
       
       /** Method to add a validation layer to be added to this instance.
        * @param validation_layer The test name of the layer to add.
@@ -47,20 +47,23 @@ namespace nyx
       void addValidationLayer( unsigned idx, const char* validation_layer ) ;
     };
     
-    VkModuleData::VkModuleData()
+    DebugData::DebugData()
     {
       
     }
 
-    void VkModuleData::addValidationLayer( unsigned idx, const char* validation_layer )
+    void DebugData::addValidationLayer( unsigned idx, const char* validation_layer )
     {
       idx = idx ;
       Vulkan::addValidationLayer( validation_layer ) ;
+      
     }
 
     Debug::Debug()
     {
-      this->module_data = new VkModuleData() ;
+      this->module_data = new DebugData() ;
+      Vulkan::addInstanceExtension( "VK_KHR_shader_non_semantic_info" ) ;
+      Vulkan::addDeviceExtension( "VK_KHR_shader_non_semantic_info", 0 ) ;
     }
 
     Debug::~Debug()
@@ -76,7 +79,7 @@ namespace nyx
     void Debug::subscribe( unsigned id )
     {
       data().bus.setChannel( id ) ;
-      data().bus.enroll( this->module_data, &VkModuleData::addValidationLayer, iris::OPTIONAL, this->name(), "::validation_layers"  ) ;
+      data().bus.enroll( this->module_data, &DebugData::addValidationLayer, iris::OPTIONAL, this->name(), "::validation_layers"  ) ;
     }
 
     void Debug::shutdown()
@@ -88,12 +91,12 @@ namespace nyx
       data().bus.wait() ;
     }
 
-    VkModuleData& Debug::data()
+    DebugData& Debug::data()
     {
       return *this->module_data ;
     }
 
-    const VkModuleData& Debug::data() const
+    const DebugData& Debug::data() const
     {
       return *this->module_data ;
     }

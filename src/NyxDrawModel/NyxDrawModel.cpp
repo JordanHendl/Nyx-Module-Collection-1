@@ -36,31 +36,39 @@
 #include <nyxgpu/vkg/Vulkan.h>
 #include <mars/Model.h>
 #include <mars/Manager.h>
+#include <mars/Texture.h>
+#include <mars/TextureArray.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <limits>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <climits>
 #include <mutex>
 #include <map>
+#include <unordered_map>
 
 static const unsigned VERSION = 1 ;
 namespace nyx
 {
   namespace vkg
   {
-    using Log     = iris::log::Log                             ;
-    using Impl    = nyx::vkg::Vulkan                           ;
-    using Manager = mars::Manager<unsigned, mars::Model<Impl>> ;
+    // <editor-fold defaultstate="collapsed" desc="Aliases">
+    using Log            = iris::log::Log                                            ;
+    using Impl           = nyx::vkg::Vulkan                                          ;
+    using ModelManager   = mars::Manager<unsigned, mars::Model<Impl>>                ;
+    using TextureManager = mars::Manager<unsigned, nyx::Image <Impl>>                ;
+    using Matrix         = glm::mat4                                                 ;
+    using ModelPair      = std::tuple<mars::Reference<mars::Model<Impl>>, glm::mat4> ;
+    using Textures       = std::map<unsigned, mars::Reference<nyx::Image<Impl>>>     ;
+    using Models         = std::map<unsigned, ModelPair>                             ;
+    using IdVec          = std::vector<unsigned>                                     ;
+    // </editor-fold>
     
+    // <editor-fold defaultstate="collapsed" desc="NyxDrawModelData Class & Function Declerations">
     struct NyxDrawModelData
     {
-      using Matrix     = glm::mat4 ;
-      using ModelPair  = std::tuple<mars::Reference<mars::Model<Impl>>, glm::mat4> ;
-      using Models     = std::map<unsigned, ModelPair> ;
-      using ModelIdVec = std::vector<unsigned> ;
-      
       struct ViewProj
       {
         Matrix view_proj ;
@@ -68,48 +76,48 @@ namespace nyx
       
       struct Iterators
       {
-        nyx::Iterator<Impl, glm::mat4> positions ;
-        nyx::Iterator<Impl, ViewProj > viewproj  ;
-        unsigned                       index     ;
+        nyx::Iterator<Impl, glm::mat4> positions   ;
+        nyx::Iterator<Impl, ViewProj > viewproj    ;
+        unsigned                       index       ;
+        unsigned                       diffuse_tex ;
       };
-      
-      nyx::Viewport                viewport         ;
-      ViewProj                     mvp              ;
-      nyx::Array<Impl, glm::mat4>  d_model_trans    ;
-      nyx::Array<Impl, ViewProj>   d_viewproj       ;
-      std::vector<Iterators>       iterators        ;
-      ModelIdVec                   not_loaded       ;
-      Models                       drawables        ;
-      const Matrix*                camera           ;
-      const Matrix*                projection       ;
-      unsigned                     subpass          ;
-      nyx::Renderer<Impl>          pipeline         ;
-      const nyx::Chain<Impl>*      parent           ;
-      const nyx::RenderPass<Impl>* parent_pass      ;
-      nyx::Chain<Impl>             draw_chain       ;
-      nyx::Chain<Impl>             copy_chain       ;
-      unsigned                     device           ;
-      iris::Bus                    bus              ;
-      iris::Bus                    wait_and_publish ;
-      std::string                  name             ;
-      std::string                  pipeline_path    ;
-      std::string                  database_req     ;
-      bool                         dirty_flag       ;
-      bool                         vp_dirty_flag    ;
-      std::mutex                   lock             ;
+
+      std::vector<glm::mat4>                     tmp              ;
+      nyx::Viewport                              viewport         ;
+      ViewProj                                   mvp              ;
+      nyx::Array<Impl, glm::mat4>                d_model_trans    ;
+      nyx::Array<Impl, ViewProj>                 d_viewproj       ;
+      std::unordered_map<std::string, Iterators> iterators        ;
+      Models                                     drawables        ;
+      const Matrix*                              camera           ;
+      const Matrix*                              projection       ;
+      unsigned                                   subpass          ;
+      nyx::Renderer<Impl>                        pipeline         ;
+      const nyx::Chain<Impl>*                    parent           ;
+      const nyx::RenderPass<Impl>*               parent_pass      ;
+      nyx::Chain<Impl>                           draw_chain       ;
+      nyx::Chain<Impl>                           copy_chain       ;
+      unsigned                                   device           ;
+      iris::Bus                                  bus              ;
+      iris::Bus                                  wait_and_publish ;
+      std::string                                name             ;
+      std::string                                pipeline_path    ;
+      bool                                       dirty_flag       ;
+      bool                                       vp_dirty_flag    ;
+      std::mutex                                 lock             ;
       
       /** Default constructor.
        */
       NyxDrawModelData() ;
       
-      /** Helper method to check and see if any models we were requested but found not loaded, have been loaded.
-       */
-      void checkForLoaded() ;
-
       /** Helper method to synchronize the VP matrix from the host to the device.
        */
       void syncVPMatrix() ;
       
+      /** Method to help update textures when the database is updated.
+       */
+      void updateTextures() ;
+
       /** Helper method to build a buffer of the draw operations of all models.
        */
       void redrawModels() ;
@@ -123,7 +131,7 @@ namespace nyx
        * @param index The index of model to set.
        * @param model_id The id associated with the model in the database.
        */
-      void setModel( unsigned index, unsigned model_id ) ;
+      void setModel( unsigned index, mars::Reference<mars::Model<Impl>> model ) ;
       
       /** Method to set the initial models to load on initialization of this module.
        * @param index The index to use for the model.
@@ -176,12 +184,16 @@ namespace nyx
       /** Method to set the output name of this module.
        * @param name The name to associate with this module's output.
        */
-      void setOutputName( unsigned idx, const char* name ) ;
+      void setOutRefName( const char* name ) ;
       
       /** Method to set the parent chain of this object.
        * @param parent The chain to inherit from and to use for appending draw calls to.
        */
       void setParentRefName( const char* name ) ;
+      
+      /** Helper function to load textures of a model.
+       */
+      void loadTextures( const mars::Reference<mars::Model<Impl>>& ref ) ;
       
       /** The function to use to signal when this module has finished.
        */
@@ -191,15 +203,10 @@ namespace nyx
        */
       void signal() ;
       
-      /** Method to set then name of the input signal to wait on.
-       * @param name The name of the signal to wait on.
-       */
-      void setWaitSignalName( const char* name ) ;
-      
       /** Method to set then name of the input signal to signal when operation is finished.
        * @param name The name of the signal to signal.
        */
-      void setFinishSignalName( const char* name ) ;
+      void setOutputName( const char* name ) ;
 
       /** Method to set the name of the database's request signal.
        * @param name The name to send the signal for a requested model to.
@@ -209,7 +216,7 @@ namespace nyx
       /** Method to set the name of the input width parameter.
        * @param name The name to associate with the input.
        */
-      void setInputName( unsigned idx, const char* name ) ;
+      void setInputNames( unsigned idx, const char* name ) ;
       
       /** Method to set the name to associate with the model input.
        * @param name The name to associate with the model input.
@@ -236,28 +243,31 @@ namespace nyx
        */
       void setDevice( unsigned id ) ;
     };
+    // </editor-fold>
     
-    void NyxDrawModelData::checkForLoaded()
+    // <editor-fold defaultstate="collapsed" desc="NyxDrawModelData Class & Function Definitions">
+
+    void NyxDrawModelData::updateTextures()
     {
-      for( unsigned index = 0; index < this->not_loaded.size(); index++ )
-      {
-        auto ref = Manager::reference( this->not_loaded[ index ] ) ;
-        if( ref )
-        {
-          this->drawables.insert( { index, std::make_tuple( ref, glm::mat4() ) } ) ;
-          this->not_loaded.erase( this->not_loaded.begin() + index ) ;
-          this->dirty_flag = true ;
-        }
-      }
+      this->lock.lock() ;
+      Impl::deviceSynchronize( this->device ) ;
+      this->pipeline.bind( "mesh_texture", mars::TextureArray<Impl>::images(), mars::TextureArray<Impl>::count() ) ;
+      this->dirty_flag = true ;
+      Impl::deviceSynchronize( this->device ) ;
+      this->lock.unlock() ;
     }
-    
+
     void NyxDrawModelData::syncVPMatrix()
     {
-      if( this->vp_dirty_flag && this->copy_chain.initialized() ) 
+      if( this->copy_chain.initialized() && this->camera != nullptr && this->projection != nullptr ) 
       {
-        this->copy_chain.copy( &this->mvp, this->d_viewproj, 1 )  ;
+        this->mvp.view_proj = *this->projection * *this->camera ;
+        this->lock.lock() ;
+        this->copy_chain.copy( &this->mvp, this->d_viewproj )  ;
         this->copy_chain.submit() ;
+        this->copy_chain.synchronize() ;
         this->vp_dirty_flag = false ;
+        this->lock.unlock() ;
       }
     }
     
@@ -265,50 +275,61 @@ namespace nyx
     {
       unsigned index ;
       
-      if( this->dirty_flag && this->draw_chain.initialized() )
+      if( this->dirty_flag && this->draw_chain.initialized() && this->drawables.size() != 0 )
       {
         index = 0 ;
-        this->iterators.resize( this->drawables.size() ) ;
+   
+        this->lock.lock() ;
+        this->copy_chain.copy( &this->mvp, this->d_viewproj ) ;
+        this->copy_chain.submit() ;
+        this->copy_chain.synchronize() ;
+        this->draw_chain.begin() ;
         for( auto& model : this->drawables )
         {
-          this->iterators[ index ].index     = index                          ;
-          this->iterators[ index ].positions = this->d_model_trans.iterator() ;
-          this->iterators[ index ].viewproj  = this->d_viewproj.iterator()    ;
           
-          this->draw_chain.push( this->pipeline, this->iterators[ index ] ) ;
-          std::get<0>( model.second )->draw( this->pipeline, this->draw_chain ) ;
+          auto& meshes = std::get<0>( model.second )->meshes() ;
+
+          for( auto mesh : meshes )
+          {
+            auto& iter = this->iterators[ mesh->name ] ;
+            
+            auto mesh_iter = mesh->textures.find( "diffuse" ) ;
+            if( mesh_iter != mesh->textures.end() ) iter.diffuse_tex = mesh->textures[ "diffuse" ] ;
+            else                                    iter.diffuse_tex = 0                           ;
+            
+            iter.index     = index                          ;
+            iter.positions = this->d_model_trans.iterator() ;
+            iter.viewproj  = this->d_viewproj.iterator   () ;
+            this->draw_chain.push( this->pipeline, iter ) ;
+            this->draw_chain.drawIndexed( this->pipeline, mesh->indices, mesh->vertices ) ;
+          }
+          
+          index++ ;
         }
+        
+        this->draw_chain.end() ;
         this->dirty_flag = false ;
+        this->draw_chain.end() ;
+        this->lock.unlock() ;
         this->bus.emit() ;
+      }
+      else
+      {
+        this->draw_chain.advance() ;
       }
     }
     
     void NyxDrawModelData::wait()
     {
-      
     }
     
     void NyxDrawModelData::signal()
     {
-      
     }
     
-    void NyxDrawModelData::setInitialModels( unsigned index, unsigned model_id )
+    void NyxDrawModelData::setModel( unsigned index, mars::Reference<mars::Model<Impl>> model )
     {
-      if( this->not_loaded.size() < index ) this->not_loaded.resize( index + 1 ) ;
-      this->not_loaded[ index ] = model_id ;
-    }
-    
-    void NyxDrawModelData::setModel( unsigned index, unsigned model_id )
-    {
-      auto ref = Manager::reference( model_id ) ;
-      if( ref ) this->drawables.insert( { index, std::make_tuple( ref, glm::mat4() ) } ) ;
-      else
-      {
-        this->not_loaded.push_back( model_id ) ;
-        this->bus.emit( model_id, this->database_req.c_str() ) ;
-      }
-      
+      this->drawables.insert( { index, std::make_tuple( model, glm::mat4( 1.0f ) ) } ) ;
       this->dirty_flag = true ;
     }
     
@@ -320,8 +341,12 @@ namespace nyx
         this->d_model_trans.initialize( this->device, index + 1024 ) ;
       }
       
-      this->copy_chain.copy( &position, this->d_model_trans, 1, 0, index ) ;
+      this->tmp[ index ] = position ;
+      this->lock.lock() ;
+      this->copy_chain.copy( this->tmp.data(), this->d_model_trans ) ;
       this->copy_chain.submit() ;
+      this->copy_chain.synchronize() ;
+      this->lock.unlock() ;
     }
     
     void NyxDrawModelData::removeModel( unsigned index )
@@ -344,6 +369,7 @@ namespace nyx
     
     void NyxDrawModelData::setParentRef( const nyx::Chain<Impl>& parent )
     {
+      Log::output( "Module ", this->name.c_str(), " set input parent chain reference as ", reinterpret_cast<const void*>( &parent ) ) ;
       this->parent = &parent ;
     }
     
@@ -392,16 +418,11 @@ namespace nyx
       this->bus.enroll( this, &NyxDrawModelData::setSubpass      , iris::OPTIONAL, name ) ;
     }
     
-    void NyxDrawModelData::setInputName( unsigned idx, const char* name )
-    {
-      idx  = idx  ;
-      name = name ;
-    }
-    
     void NyxDrawModelData::setModelInputName( const char* name )
     {
       Log::output( "Module ", this->name.c_str(), " set input add model signal as \"", name, "\"" ) ;
-      this->bus.enroll( this, &NyxDrawModelData::setModel, iris::OPTIONAL, name ) ;
+      this->bus.enroll( this, &NyxDrawModelData::setModel         , iris::OPTIONAL, name ) ;
+      this->bus.enroll( this, &NyxDrawModelData::setModelTransform, iris::OPTIONAL, name ) ;
     }
     
     void NyxDrawModelData::setModelClearName( const char* name )
@@ -422,28 +443,20 @@ namespace nyx
       this->bus.enroll( this, &NyxDrawModelData::setProjRef, iris::OPTIONAL, name ) ;
     }
     
-    void NyxDrawModelData::setOutputName( unsigned idx, const char* name )
+    void NyxDrawModelData::setOutRefName( const char* name )
     {
-      Log::output( "Module ", this->name.c_str(), " set output ", idx, " as \"", name, "\"" ) ;
+      Log::output( "Module ", this->name.c_str(), " set output reference as \"", name, "\"" ) ;
       
-      switch( idx )
-      {
-        default: this->bus.publish( this, &NyxDrawModelData::chain, name ) ; this->wait_and_publish.publish( this, &NyxDrawModelData::signal, name ) ; break ;
-      }
+      this->bus.publish( this, &NyxDrawModelData::chain, name ) ;
     }
     
-    void NyxDrawModelData::setDatabaseRequest( const char* name )
+    void NyxDrawModelData::setInputNames( unsigned idx, const char* name )
     {
-      Log::output( "Module ", this->name.c_str(), " set database request signal name as \"", name, "\"" ) ;
-      this->database_req = name ;
-    }
-    
-    void NyxDrawModelData::setWaitSignalName( const char* name )
-    {
+      idx = idx ;
       this->wait_and_publish.enroll( this, &NyxDrawModelData::wait, iris::REQUIRED, name ) ;
     }
     
-    void NyxDrawModelData::setFinishSignalName( const char* name )
+    void NyxDrawModelData::setOutputName( const char* name )
     {
       this->wait_and_publish.publish( this, &NyxDrawModelData::signal, name ) ;
     }
@@ -459,6 +472,9 @@ namespace nyx
       this->parent      = nullptr ;
     }
     
+    // </editor-fold>
+    
+    // <editor-fold defaultstate="collapsed" desc="NyxDrawModel Function Definitions">
     NyxDrawModel::NyxDrawModel()
     {
       this->module_data = new NyxDrawModelData() ;
@@ -477,13 +493,23 @@ namespace nyx
         data().pipeline.initialize( data().device, *data().parent_pass, data().pipeline_path.c_str() ) ;
       }
       
-      data().d_viewproj.initialize( data().device, 1 ) ;
       data().copy_chain.initialize( data().device, nyx::ChainType::Compute ) ;
       
-      for( auto& id : data().not_loaded )
-      {
-        data().bus.emit( id, data().database_req.c_str() ) ;
-      }
+      data().d_viewproj   .initialize( data().device, 1    ) ;
+      data().d_model_trans.initialize( data().device, 1024 ) ;
+      data().tmp          .resize( 1024 )                    ;
+      
+      std::fill( data().tmp.begin(), data().tmp.end(), glm::mat4( 1.0f ) ) ;
+      
+      data().lock.lock() ;
+      data().copy_chain.copy( data().tmp.data(), data().d_model_trans ) ;
+      data().copy_chain.submit() ;
+      data().copy_chain.synchronize() ;
+      data().lock.unlock() ;
+      
+      data().draw_chain.setMode( nyx::ChainMode::All ) ;
+      
+      mars::TextureArray<Impl>::addCallback( this->module_data, &NyxDrawModelData::updateTextures, this->name() ) ;
     }
 
     void NyxDrawModel::subscribe( unsigned id )
@@ -492,19 +518,16 @@ namespace nyx
       data().bus.setChannel( id ) ;
       data().name = this->name() ;
       
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setFinishSignalName, iris::OPTIONAL, this->name(), "::finish_signal"  ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setWaitSignalName  , iris::OPTIONAL, this->name(), "::wait_on"        ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setPipelinePath    , iris::OPTIONAL, this->name(), "::pipeline"       ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setParentRefName   , iris::OPTIONAL, this->name(), "::parent"         ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setDatabaseRequest , iris::OPTIONAL, this->name(), "::database"       ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setProjRefName     , iris::OPTIONAL, this->name(), "::projection"     ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setViewRefName     , iris::OPTIONAL, this->name(), "::camera"         ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setInitialModels   , iris::OPTIONAL, this->name(), "::initial_models" ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setModelInputName  , iris::OPTIONAL, this->name(), "::model_input"    ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setModelClearName  , iris::OPTIONAL, this->name(), "::model_remove"   ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setInputName       , iris::OPTIONAL, this->name(), "::inputs"         ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setOutputName      , iris::OPTIONAL, this->name(), "::outputs"        ) ;
-      data().bus.enroll( this->module_data, &NyxDrawModelData::setDevice          , iris::OPTIONAL, this->name(), "::device"         ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setInputNames     , iris::OPTIONAL, this->name(), "::input"        ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setOutputName     , iris::OPTIONAL, this->name(), "::output"       ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setPipelinePath   , iris::OPTIONAL, this->name(), "::pipeline"     ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setParentRefName  , iris::OPTIONAL, this->name(), "::parent"       ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setProjRefName    , iris::OPTIONAL, this->name(), "::projection"   ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setViewRefName    , iris::OPTIONAL, this->name(), "::camera"       ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setModelInputName , iris::OPTIONAL, this->name(), "::model_input"  ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setModelClearName , iris::OPTIONAL, this->name(), "::model_remove" ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setOutRefName     , iris::OPTIONAL, this->name(), "::reference"    ) ;
+      data().bus.enroll( this->module_data, &NyxDrawModelData::setDevice         , iris::OPTIONAL, this->name(), "::device"       ) ;
     }
 
     void NyxDrawModel::shutdown()
@@ -516,7 +539,6 @@ namespace nyx
     {
       data().wait_and_publish.wait() ;
       
-      data().checkForLoaded() ;
       data().syncVPMatrix() ;
       
       if( !data().draw_chain.initialized() && data().parent != nullptr )
@@ -526,12 +548,15 @@ namespace nyx
       if( !data().pipeline.initialized() && data().parent_pass && !data().pipeline_path.empty() )
       {
         data().pipeline.addViewport( data().viewport ) ;
+        data().pipeline.setTestDepth( true ) ;
         data().pipeline.initialize( data().device, *data().parent_pass, data().pipeline_path.c_str() ) ;
+        data().lock.lock() ;
+        Impl::deviceSynchronize( data().device ) ;
+        data().pipeline.bind( "mesh_texture", mars::TextureArray<Impl>::images(), mars::TextureArray<Impl>::count() ) ;
+        Impl::deviceSynchronize( data().device ) ;
+        data().lock.unlock() ;
       }
-      else
-      {
-        data().redrawModels() ;
-      }
+      data().redrawModels() ;
       
       data().wait_and_publish.emit() ;
     }
@@ -546,8 +571,10 @@ namespace nyx
       return *this->module_data ;
     }
   }
+  // </editor-fold>
 }
 
+// <editor-fold defaultstate="collapsed" desc="Exported function definitions">
 /** Exported function to retrive the name of this module type.
  * @return The name of this object's type.
  */
@@ -581,4 +608,5 @@ exported_function void destroy( ::iris::Module* module )
   
   mod = dynamic_cast<nyx::vkg::NyxDrawModel*>( module ) ;
   delete mod ;
+  // </editor-fold>
 }

@@ -1,0 +1,39 @@
+{
+  "models" :
+  [
+    { "ID" : 0, "Path" : "/home/jhendl/Models/ngg/mipha.ngg", "materials" : [ { "mesh" : "Untitled_000-mesh", "diffuse" : 2, "other" : 1 }, 
+                                                                              { "mesh" : "Untitled_001-mesh", "diffuse" : 2, "other" : 1 }, 
+                                                                              { "mesh" : "Untitled_002-mesh", "diffuse" : 2, "other" : 1 }, 
+                                                                              { "mesh" : "Untitled_003-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_004-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_005-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_006-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_007-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_008-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_009-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_010-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_011-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_012-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_013-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_014-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_015-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled_016-mesh", "diffuse" : 4, "other" : 1 },
+                                                                              { "mesh" : "Untitled_017-mesh", "diffuse" : 2, "other" : 1 },
+                                                                              { "mesh" : "Untitled-mesh"    , "diffuse" : 2, "other" : 0 } ] },
+                                                                          
+    { "ID" : 1, "Path" : "/home/jhendl/Models/ngg/box.ngg"  , "materials" : [ { "mesh" : "fuck_idk", "diffuse" : 0, "other" : 0 } ] }
+  ],
+  "textures" :
+  [
+    { "ID" : 0, "Path" : "/home/jhendl/Pictures/cute.ngt"                                   },
+    { "ID" : 1, "Path" : "/home/jhendl/Pictures/pikachu.ngt"                                },
+    { "ID" : 2, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_body_alb.ngt"    },
+    { "ID" : 3, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_body_nrm.ngt"    },
+    { "ID" : 4, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_face_alb.ngt"    },
+    { "ID" : 5, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_body_ao.ngt"     },
+    { "ID" : 6, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_eyeball_spm.ngt" },
+    { "ID" : 7, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_eyeball_nrm.ngt" },
+    { "ID" : 8, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_face_ao.ngt"     },
+    { "ID" : 9, "Path" : "/home/jhendl/Pictures/Textures/ngt/npc_zora_hero_face_nrm.ngt"    }
+  ]
+}

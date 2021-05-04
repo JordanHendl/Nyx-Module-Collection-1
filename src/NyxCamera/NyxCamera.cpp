@@ -21,21 +21,36 @@
 #include "NyxCamera.h"
 #include <iris/data/Bus.h>
 #include <iris/log/Log.h>
+#include <iris/profiling/Timer.h>
+#include <nyxgpu/event/Event.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <string>
+#include <array>
+#include <chrono>
+#include <thread>
 
 static const unsigned VERSION = 1 ;
 namespace nyx
 {
   using Log = iris::log::Log ;
   
+  
+  
   struct CameraData
   {
-    iris::Bus   bus      ;
-    glm::mat4   camera   ;
-    glm::vec3   position ;
-    std::string name     ;
+    std::array<bool, 4> buttons        ;
+    iris::Bus           bus            ;
+    glm::mat4           camera         ;
+    glm::vec3           position       ;
+    glm::vec3           front          ;
+    glm::vec3           right          ;
+    glm::vec3           euler          ;
+    glm::vec3           up             ;
+    const glm::vec3*    target         ;
+    std::string         name           ;
+    
+    nyx::EventManager manager ;
 
     /** Default constructor.
      */
@@ -44,12 +59,39 @@ namespace nyx
     void setInputTranslationName( const char* name ) ;
     void setInputTransformName( const char* name ) ;
     void setOutputName( unsigned index, const char* name ) ;
+    void handleEvent( const nyx::Event& event ) ;
     void setLookAtName( const char* name ) ;
-    void lookAt( const glm::vec4& position ) ;
+    void lookAt( const glm::vec3& position ) ;
     void translate( const glm::vec4& position ) ;
     void transform( const glm::mat4& trans ) ;
     const glm::mat4& view() ;
   };
+  
+  void CameraData::handleEvent( const nyx::Event& event )
+  {
+    if( event.type() == nyx::Event::Type::KeyDown )
+    {
+      switch( event.key() )
+      {
+        case nyx::Key::W : this->buttons[ 0 ] = true ; break ;
+        case nyx::Key::S : this->buttons[ 1 ] = true ; break ;
+        case nyx::Key::D : this->buttons[ 2 ] = true ; break ;
+        case nyx::Key::A : this->buttons[ 3 ] = true ; break ;
+        default : break ;
+      }
+    }
+    else if( event.type() == nyx::Event::Type::KeyUp )
+    {
+      switch( event.key() )
+      {
+        case nyx::Key::W : this->buttons[ 0 ] = false ; break ;
+        case nyx::Key::S : this->buttons[ 1 ] = false ; break ;
+        case nyx::Key::D : this->buttons[ 2 ] = false ; break ;
+        case nyx::Key::A : this->buttons[ 3 ] = false ; break ;
+        default : break ;
+      }
+    }
+  }
   
   void CameraData::setInputTranslationName( const char* name )
   {
@@ -78,17 +120,17 @@ namespace nyx
     this->bus.enroll( this, &CameraData::lookAt, iris::OPTIONAL, name ) ;
   }
 
-  void CameraData::lookAt( const glm::vec4& position )
+  void CameraData::lookAt( const glm::vec3& position )
   {
-    glm::vec3 tmp = { position.x, position.y, position.z } ;
-    this->camera = glm::lookAt( this->position, tmp, glm::vec3( 0, 1, 0 ) ) ;
+    this->target = &position ;
+    this->camera = glm::lookAt( this->position, this->position + *this->target, this->up ) ;
     this->bus.emit() ;
   }
 
   void CameraData::translate( const glm::vec4& position )
   {
-    glm::vec3 tmp = { position.x, position.y, position.z } ;
-    this->camera = glm::translate( this->camera, tmp ) ;
+//    glm::vec3 tmp = { position.x, position.y, position.z } ;
+    position.length() ;
     this->bus.emit() ;
   }
 
@@ -105,8 +147,13 @@ namespace nyx
 
   CameraData::CameraData()
   {
-    this->camera   = glm::mat4( 1.0f ) ;
-    this->position = glm::vec4( 1.0f ) ;
+    this->right          = glm::vec3( 0.0f, 0.0f, -1.0f ) ;
+    this->up             = glm::vec3( 0.0f, 1.0f, 0.0f  ) ;
+    this->euler          = glm::vec3( -90.f, 0.0f, 0.0f );
+    this->target         = &this->front                  ;
+    this->camera         = glm::mat4( 1.0f )             ;
+    this->position       = glm::vec3( 0.f, -2.0f, -1.f ) ;
+    this->front          = glm::vec3( 0.0f, 1.0f, 0.0f ) ;
   }
 
   Camera::Camera()
@@ -121,6 +168,8 @@ namespace nyx
 
   void Camera::initialize()
   {
+    data().camera = glm::lookAt( data().position, data().position + *data().target, data().up ) ;
+    data().manager.enroll( this->module_data, &CameraData::handleEvent, this->name() ) ;
     data().bus.emit() ;
   }
 
@@ -131,8 +180,8 @@ namespace nyx
     data().name = this->name() ;
     data().bus.enroll( this->module_data, &CameraData::setInputTransformName  , iris::OPTIONAL, this->name(), "::transform" ) ;
     data().bus.enroll( this->module_data, &CameraData::setInputTranslationName, iris::OPTIONAL, this->name(), "::translate" ) ;
-    data().bus.enroll( this->module_data, &CameraData::setLookAtName          , iris::OPTIONAL, this->name(), "::lookat"    ) ;
-    data().bus.enroll( this->module_data, &CameraData::setOutputName          , iris::OPTIONAL, this->name(), "::outputs"   ) ;
+    data().bus.enroll( this->module_data, &CameraData::setLookAtName          , iris::OPTIONAL, this->name(), "::target"    ) ;
+    data().bus.enroll( this->module_data, &CameraData::setOutputName          , iris::OPTIONAL, this->name(), "::output"    ) ;
   }
 
   void Camera::shutdown()
@@ -141,7 +190,43 @@ namespace nyx
 
   void Camera::execute()
   {
+    glm::vec3 tmp     ;
+    float     xoffset ;
+    float     yoffset ;
     
+    xoffset = data().manager.mouseDeltaX() ;
+    yoffset = data().manager.mouseDeltaY() ;
+    
+    if( data().buttons[ 0 ] ) data().position += ( data().front * 0.01f ) ;
+    if( data().buttons[ 1 ] ) data().position -= ( data().front * 0.01f ) ;
+    if( data().buttons[ 2 ] ) data().position += ( data().right * 0.01f ) ;
+    if( data().buttons[ 3 ] ) data().position -= ( data().right * 0.01f ) ;
+    
+    {
+//      if( xoffset != 0.0f || yoffset != 0.0f )
+//      {
+//        Log::output( "xOFF: ", xoffset, " YOFF: ", yoffset ) ;
+//        Log::output( "Pitch: ", data().euler.y, " Yaw: ", data().euler.x ) ;
+//      }
+      
+      xoffset *= 0.1 ;
+      yoffset *= 0.1 ;
+      
+      data().euler.x -= xoffset ;
+      data().euler.y += yoffset ;
+      if ( data().euler.y > 89.0f  ) data().euler.y = 89.0f  ;
+      if ( data().euler.y < -89.0f ) data().euler.y = -89.0f ;
+
+      tmp.x = std::cos( glm::radians( data().euler.x ) * std::cos( glm::radians( data().euler.y ) ) ) ;
+      tmp.y = std::sin( glm::radians( data().euler.y ) ) ;
+      tmp.z = std::sin( glm::radians( data().euler.x ) * std::cos( glm::radians( data().euler.y ) ) ) ;
+      
+      data().front = glm::normalize( tmp                                              ) ;
+      data().right = glm::normalize( glm::cross( data().front, glm::vec3( 0, 1, 0 ) ) ) ;
+      data().up    = glm::normalize( glm::cross( data().right, data().front         ) ) ;
+      
+      data().camera = glm::lookAt( data().position, data().position + ( data().front * 5.f ), data().up ) ;
+    }
   }
 
   CameraData& Camera::data()

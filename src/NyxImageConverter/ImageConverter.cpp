@@ -237,7 +237,7 @@ namespace nyx
         if( data().staging_buffer.size() <= img_size )
         {
           data().staging_buffer.reset() ;
-          data().staging_buffer.initialize( data().device, img_size + 10000, true, nyx::ArrayFlags::TransferSrc | nyx::ArrayFlags::TransferDst ) ;
+          data().staging_buffer.initialize( data().device, img_size + 10000, true ) ;
         }
 
         data().chain.transition( data().converted_img, nyx::ImageLayout::TransferSrc ) ;
