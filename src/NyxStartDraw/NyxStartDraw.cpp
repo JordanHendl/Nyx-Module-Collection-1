@@ -179,6 +179,9 @@ namespace nyx
       
       template<unsigned ID>
       void setInputWaitSignal() ;
+      
+      template<unsigned ID>
+      const nyx::Image<Framework>& framebuffer() ;
 
       /** Method to set the device to use for this module's operations.
        * @param device The device to set.
@@ -300,6 +303,12 @@ namespace nyx
         default : break ;
       }
     }
+    
+    template<unsigned ID>
+    const nyx::Image<Framework>& NyxStartDrawData::framebuffer()
+    {
+      return reinterpret_cast<const nyx::Image<Framework>&>( this->render_pass.framebuffer<ID>() ) ;
+    }
 
     void NyxStartDrawData::setInputSubpasses( const Token& token )
     {
@@ -322,11 +331,28 @@ namespace nyx
         auto subpass_token = token.token( subpass_index ) ;
         
         const auto depth_enable = subpass_token[ "depth_enable" ] ;
+        const auto output       = subpass_token[ "output"       ] ;
         const auto depends      = subpass_token[ "depends"      ] ;
         const auto attachments  = subpass_token[ "attachments"  ] ;
         
         subpass = nyx::Subpass() ;
        
+        if( output )
+        {
+          std::string out = output.string() ;
+          Log::output( "Module ", this->name.c_str(), " set subpass ", subpass_index, " output as ", out.c_str() ) ;
+          switch( subpass_index )
+          {
+            case 0: this->draw_bus.publish( this, &NyxStartDrawData::framebuffer<0>, out.c_str() ) ; break ;
+            case 1: this->draw_bus.publish( this, &NyxStartDrawData::framebuffer<1>, out.c_str() ) ; break ;
+            case 2: this->draw_bus.publish( this, &NyxStartDrawData::framebuffer<2>, out.c_str() ) ; break ;
+            case 3: this->draw_bus.publish( this, &NyxStartDrawData::framebuffer<3>, out.c_str() ) ; break ;
+            case 4: this->draw_bus.publish( this, &NyxStartDrawData::framebuffer<4>, out.c_str() ) ; break ;
+            case 5: this->draw_bus.publish( this, &NyxStartDrawData::framebuffer<5>, out.c_str() ) ; break ;
+            case 6: this->draw_bus.publish( this, &NyxStartDrawData::framebuffer<6>, out.c_str() ) ; break ;
+          }
+        }
+
         if( depth_enable ) subpass.setDepthStencilEnable( depth_enable.boolean() ) ;
         
         if( depends )

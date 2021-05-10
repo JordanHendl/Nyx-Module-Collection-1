@@ -14,13 +14,8 @@ SET( NYX_WINDOW_MODULE_LIBRARIES
      iris_bus
      nyx_vkg
      nyx_library
+     nyx_window
    )
-
-IF( UNIX )
-  LIST( APPEND( ${NYX_WINDOW_MODULE_LIBRARIES} nyx_linux ) )
-ELSEIF( WIN32 )
-  LIST( APPEND( ${NYX_WINDOW_MODULE_LIBRARIES} nyx_windows ) )
-ENDIF()
 
 ADD_LIBRARY               ( NyxWindow SHARED ${NYX_WINDOW_MODULE_SOURCES} ${NYX_WINDOW_MODULE_HEADERS} )
 TARGET_LINK_LIBRARIES     ( NyxWindow PUBLIC ${NYX_WINDOW_MODULE_LIBRARIES}                            )

@@ -13,8 +13,8 @@
       "nyx_player" :
       {
         "type"     : "NyxDummyPlayer",
-        "renderer" : "input_models_here",
-        "model"    : 1,
+        "renderer" : "input_textures_here",
+        "texture"  : 1,
         "position" : { "x" : 0.0, "y" : 0.0, "z" : 0.0 }
       },
       # A Window module to create a window using the given ID and parameters.
@@ -55,6 +55,7 @@
         "projection"    : "nyx_begin_projection",
         "subpasses"     : [ 
                             {
+                              "output"       : "combine_this",
                               "depth_enable" : true,
                               "attachments"  : [ 
                                                  { "format" : "RGBA8", "stencil_clear" : true, "layout" : "Color", "clear_color" : [ 0.1, 0.1, 0.2, 1.0 ] }
@@ -63,25 +64,24 @@
                           ],
         "input"         : [ "presented" ],
         "output"        : [ "render_pass_finish" ] ,
-        "stage2_input"  : [ "model_1_finish" ],
+        "stage2_input"  : [ "texture_1_finish" ],
         "stage2_output" : "presented",
         "references"    : [ "draw1" ],
-        "children"      : [ "model_1_ref" ]
+        "children"      : [ "texture_1_ref" ]
       },
       # A draw op module. Uses the render pass inputted to draw a NGG model.
-      "nyx_draw_model" :
+      "nyx_draw_texture" :
       {
-        "type"           : "NyxDrawModel",
+        "type"           : "NyxDrawTex2D",
         "input"          : [ "render_pass_finish" ],
-        "output"         : "model_1_finish",
+        "output"         : "texture_1_finish",
         "parent"         : "draw1",
-        "reference"      : "model_1_ref",
-        "pipeline"       : "/wksp/test/iris_test/shaders/draw_model.nyx",
+        "reference"      : "texture_1_ref",
         "projection"     : "nyx_begin_projection",
         "camera"         : "nyx_camera_input",
         "database"       : "model_input",
-        "model_input"    : "input_models_here",
-        "model_remove"   : "remove_models_here", 
+        "texture_input"  : "input_textures_here",
+        "texture_remove" : "remove_textures_here", 
         "device"         : 0
       }
     }

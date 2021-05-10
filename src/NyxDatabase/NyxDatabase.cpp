@@ -40,17 +40,17 @@ namespace nyx
   
   struct DatabaseData
   {
-    using ModelRequests   = std::vector<std::pair<unsigned, ModelManager::Callback*>> ;
-    using TextureRequests = std::vector<unsigned> ;
+    using ModelRequests    = std::vector<std::pair<unsigned, ModelManager  ::Callback*>> ;
+    using TextureRequests  = std::vector<std::pair<unsigned, TextureManager::Callback*>> ;
     
-    mars::Texture<Framework>    default_tex   ;
-    iris::Bus                   bus           ;
-    std::string                 name          ;
-    std::string                 json_path     ;
-    ModelRequests               model_request ;
-    TextureRequests             tex_request   ;
-    iris::config::Configuration database      ;
-    unsigned                    device        ;
+    mars::Texture<Framework>    default_tex     ;
+    iris::Bus                   bus             ;
+    std::string                 name            ;
+    std::string                 json_path       ;
+    ModelRequests               model_request   ;
+    TextureRequests             texture_request ;
+    iris::config::Configuration database        ;
+    unsigned                    device          ;
     
     /** Default constructor.
      */
@@ -61,14 +61,37 @@ namespace nyx
     
     std::string seekTexturePath( unsigned tex_id ) ;
     void requestModel( unsigned model_id, ModelManager::Callback* cb ) ;
+    void requestTexture( unsigned texture_id, TextureManager::Callback* cb ) ;
     void loadModels() ;
     void loadTextures() ;
+    void loadTexture( unsigned id ) ;
     void setInputNames( unsigned idx, const char* name ) ;
     void setOutputName( const char* name ) ;
     void setDatabaseJSON( const char* name ) ;
     void setDevice( unsigned id ) ;
   };
   
+  void DatabaseData::loadTexture( unsigned tex_id ) 
+  {
+    const auto token = this->database.begin()[ "models" ] ;
+    unsigned    id   ;
+    std::string path ;
+
+    for( unsigned index = 0; index < token.size(); index++ )
+    {
+      auto tex = token.token( index ) ;
+           id    = tex[ "ID"   ].number() ;
+           path  = tex[ "Path" ].string() ;
+
+      if( id == tex_id && !TextureManager::has( id ) )
+      {
+        auto ref = TextureManager::create( id, path.c_str(), this->device ) ;
+        TextureArray::set( id, *ref ) ;
+        TextureArray::signal() ;
+      }
+    }
+  }
+
   void DatabaseData::loadModels()
   {
     const auto token = this->database.begin()[ "models" ] ;
@@ -116,9 +139,8 @@ namespace nyx
               {
                 if( diffuse )
                 {
-                  
                   ref->setTexture( mesh_index, "diffuse", diffuse.number() ) ;
-                  this->tex_request.push_back( diffuse.number() ) ;
+                  this->loadTexture( diffuse.number() ) ;
                 }
               }
             }
@@ -146,33 +168,49 @@ namespace nyx
 
   void DatabaseData::loadTextures() 
   {
-    const auto token = this->database.begin()[ "textures" ] ;
-    unsigned    id    ;
-    std::string path  ;
-    bool        dirty ;
+    const auto token = this->database.begin()[ "models" ] ;
+    unsigned    id        ;
+    std::string path      ;
+    bool        dirty     ;
     
     dirty = false ;
     if( this->database.isInitialized() )
     {
-      for( auto& tex_id : this->tex_request )
+      for( auto& tex_req : this->texture_request )
       {
         for( unsigned index = 0; index < token.size(); index++ )
         {
-          auto texture = token.token( index ) ;
-          id   = texture[ "ID"   ].number() ;
-          path = texture[ "Path" ].string() ;
+          auto tex     = token.token( index ) ;
+          id   = tex[ "ID"   ].number() ;
+          path = tex[ "Path" ].string() ;
           
-          if( id == tex_id && ! TextureManager::has( id ) )
+          if( id == tex_req.first && !TextureManager::has( id ) && tex_req.second )
           {
             auto ref = TextureManager::create( id, path.c_str(), this->device ) ;
+
+            tex_req.second->callback( id, ref ) ;
+            delete tex_req.second ;
+            tex_req.second = nullptr ;
+            
             TextureArray::set( id, *ref ) ;
             dirty = true ;
           }
+          else if( TextureManager::has( id ) && tex_req.second )
+          {
+            auto ref = TextureManager::reference( id ) ;
+            tex_req.second->callback( id, ref ) ;
+            delete tex_req.second ;
+            tex_req.second = nullptr ;
+          }
         }
-
-        this->tex_request.clear() ;
+        if( tex_req.second )
+        {
+          delete tex_req.second ;
+        }
       }
+      
       if( dirty ) TextureArray::signal() ;
+      this->texture_request.clear() ;
     }
   }
 
@@ -187,6 +225,10 @@ namespace nyx
     this->model_request.push_back( { model_id, cb } ) ;
   }
   
+  void DatabaseData::requestTexture( unsigned texture_id, TextureManager::Callback* cb )
+  {
+    this->texture_request.push_back( { texture_id, cb } ) ;
+  }
 
   void DatabaseData::setInputNames( unsigned idx, const char* name )
   {
@@ -209,7 +251,8 @@ namespace nyx
 
   DatabaseData::DatabaseData()
   {
-    ModelManager::addFulfiller( this, &DatabaseData::requestModel, 0 ) ;
+    ModelManager  ::addFulfiller( this, &DatabaseData::requestModel  , 0 ) ;
+    TextureManager::addFulfiller( this, &DatabaseData::requestTexture, 0 ) ;
     
     this->device    = 0  ;
     this->name      = "" ;
@@ -229,7 +272,7 @@ namespace nyx
   void Database::initialize()
   {
     data().model_request.reserve( 100 ) ;
-    data().tex_request  .reserve( 100 ) ;
+    data().texture_request  .reserve( 100 ) ;
     
     if( !data().json_path.empty() ) data().database.initialize( data().json_path.c_str() ) ;
     data().default_tex.initialize( nyx::bytes::converted_kitty, sizeof( nyx::bytes::converted_kitty ), data().device ) ;

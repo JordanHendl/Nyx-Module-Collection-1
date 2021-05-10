@@ -4,15 +4,15 @@ FIND_PACKAGE( Mars            )
 
 IF( ${Mars_FOUND} )
 
-  SET( NYX_DRAW_MODEL__HEADERS 
+  SET( NYX_DRAW_MODEL_HEADERS 
         NyxDrawModel.h
      )
   
-  SET( NYX_DRAW_MODEL__SOURCES
+  SET( NYX_DRAW_MODEL_SOURCES
         NyxDrawModel.cpp
      )
   
-  SET( NYX_DRAW_MODEL__LIBRARIES
+  SET( NYX_DRAW_MODEL_LIBRARIES
        iris_module
        iris_bus
        iris_profiling
@@ -22,8 +22,8 @@ IF( ${Mars_FOUND} )
        mars_nyxext
      )
   
-  ADD_LIBRARY          ( NyxDrawModel SHARED ${NYX_DRAW_MODEL__SOURCES} ${NYX_DRAW_MODEL__HEADERS} )
-  TARGET_LINK_LIBRARIES( NyxDrawModel PUBLIC ${NYX_DRAW_MODEL__LIBRARIES}                          )
+  ADD_LIBRARY          ( NyxDrawModel SHARED ${NYX_DRAW_MODEL_SOURCES} ${NYX_DRAW_MODEL_HEADERS} )
+  TARGET_LINK_LIBRARIES( NyxDrawModel PUBLIC ${NYX_DRAW_MODEL_LIBRARIES}                         )
   
   BUILD_TEST( TARGET NyxDrawModel
               DEPENDS ${NYX_DRAW_MODEL_LIBRARIES} )

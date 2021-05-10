@@ -1,0 +1,26 @@
+FIND_PACKAGE( NyxGPU REQUIRED )
+FIND_PACKAGE( Iris   REQUIRED )
+
+SET( NYX_GPU_BARRIER_HEADERS 
+      NyxGPUBarrier.h
+   )
+
+SET( NYX_GPU_BARRIER_SOURCES
+      NyxGPUBarrier.cpp
+   )
+
+SET( NYX_GPU_BARRIER_LIBRARIES
+     iris_module
+     iris_bus
+     iris_profiling
+     nyx_library
+     nyx_vkg
+   )
+
+ADD_LIBRARY          ( NyxGPUBarrier SHARED ${NYX_GPU_BARRIER_SOURCES} ${NYX_GPU_BARRIER_HEADERS} )
+TARGET_LINK_LIBRARIES( NyxGPUBarrier PUBLIC ${NYX_GPU_BARRIER_LIBRARIES}                          )
+
+BUILD_TEST( TARGET NyxGPUBarrier
+            DEPENDS ${NYX_GPU_BARRIER_LIBRARIES} )
+
+INSTALL( TARGETS NyxGPUBarrier DESTINATION ${LIB_DIR} )

@@ -13,6 +13,7 @@ SET( NYX_CAMERA_LIBRARIES
      iris_module
      iris_bus
      nyx_event
+     nyx_vkg
    )
 
 ADD_LIBRARY               ( NyxCamera SHARED ${NYX_CAMERA_SOURCES} ${NYX_CAMERA_HEADERS} )

@@ -23,6 +23,7 @@
 #include <iris/log/Log.h>
 #include <iris/profiling/Timer.h>
 #include <nyxgpu/event/Event.h>
+#include <nyxgpu/vkg/Vulkan.h>
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <string>
@@ -34,8 +35,6 @@ static const unsigned VERSION = 1 ;
 namespace nyx
 {
   using Log = iris::log::Log ;
-  
-  
   
   struct CameraData
   {
@@ -190,7 +189,7 @@ namespace nyx
 
   void Camera::execute()
   {
-    glm::vec3 tmp     ;
+    glm::vec3 front     ;
     float     xoffset ;
     float     yoffset ;
     
@@ -202,31 +201,23 @@ namespace nyx
     if( data().buttons[ 2 ] ) data().position += ( data().right * 0.01f ) ;
     if( data().buttons[ 3 ] ) data().position -= ( data().right * 0.01f ) ;
     
-    {
-//      if( xoffset != 0.0f || yoffset != 0.0f )
-//      {
-//        Log::output( "xOFF: ", xoffset, " YOFF: ", yoffset ) ;
-//        Log::output( "Pitch: ", data().euler.y, " Yaw: ", data().euler.x ) ;
-//      }
-      
-      xoffset *= 0.1 ;
-      yoffset *= 0.1 ;
-      
-      data().euler.x -= xoffset ;
-      data().euler.y += yoffset ;
-      if ( data().euler.y > 89.0f  ) data().euler.y = 89.0f  ;
-      if ( data().euler.y < -89.0f ) data().euler.y = -89.0f ;
+    xoffset *= 0.1 ;
+    yoffset *= 0.1 ;
 
-      tmp.x = std::cos( glm::radians( data().euler.x ) * std::cos( glm::radians( data().euler.y ) ) ) ;
-      tmp.y = std::sin( glm::radians( data().euler.y ) ) ;
-      tmp.z = std::sin( glm::radians( data().euler.x ) * std::cos( glm::radians( data().euler.y ) ) ) ;
-      
-      data().front = glm::normalize( tmp                                              ) ;
-      data().right = glm::normalize( glm::cross( data().front, glm::vec3( 0, 1, 0 ) ) ) ;
-      data().up    = glm::normalize( glm::cross( data().right, data().front         ) ) ;
-      
-      data().camera = glm::lookAt( data().position, data().position + ( data().front * 5.f ), data().up ) ;
-    }
+    data().euler.x += xoffset ;
+    data().euler.y += yoffset ;
+    if ( data().euler.y > 89.0f  ) data().euler.y = 89.0f  ;
+    if ( data().euler.y < -89.0f ) data().euler.y = -89.0f ;
+
+    front.x = std::cos( glm::radians( data().euler.x ) * std::cos( glm::radians( data().euler.y ) ) ) ;
+    front.y = std::sin( glm::radians( data().euler.y )                                              ) ;
+    front.z = std::sin( glm::radians( data().euler.x ) * std::cos( glm::radians( data().euler.y ) ) ) ;
+
+    data().front = glm::normalize( front                                                    ) ;
+    data().right = glm::normalize( glm::cross( data().front, glm::vec3( 0.f, 1.0, 0.f ) ) ) ;
+    data().up    = glm::normalize( glm::cross( data().right, data().front               ) ) ;
+
+    data().camera = glm::lookAt( data().position, data().position + ( data().front ), data().up ) ;
   }
 
   CameraData& Camera::data()

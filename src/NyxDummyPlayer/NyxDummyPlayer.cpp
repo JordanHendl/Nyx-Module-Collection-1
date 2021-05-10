@@ -46,16 +46,18 @@ namespace nyx
     using ModelRequests   = std::vector<unsigned> ;
     using TextureRequests = std::vector<unsigned> ;
     
-    iris::Bus   bus         ;
-    std::string draw_signal ;
-    std::string name        ;
-    bool        ready       ;
-    bool        dirty       ;
-    bool        dirty_pos   ;
-    unsigned    model_id    ;
-    unsigned    model_slot  ;
-    glm::vec3   position    ;
-    glm::mat4   transform   ;
+    iris::Bus   bus           ;
+    std::string draw_signal   ;
+    std::string name          ;
+    bool        ready         ;
+    bool        dirty_model   ;
+    bool        dirty_texture ;
+    bool        dirty_pos     ;
+    unsigned    model_id      ;
+    unsigned    texture_id    ;
+    unsigned    model_slot    ;
+    glm::vec3   position      ;
+    glm::mat4   transform     ;
 
     nyx::EventManager manager ;
     
@@ -63,6 +65,7 @@ namespace nyx
      */
     DummyPlayerData() ;
     void setRequiredModel( unsigned id ) ;
+    void setRequiredTexture( unsigned id ) ;
     void handleEvents( const nyx::Event& event ) ;
     void setWait( const char* signal ) ;
     void setSignal( const char* signal ) ;
@@ -71,6 +74,7 @@ namespace nyx
     void wait() ;
     void signal() ;
     void loaded( unsigned key, mars::Reference<mars::Model<Impl>> model ) ;
+    void loaded( unsigned key, mars::Reference<mars::Texture<Impl>> model ) ;
   };
 
   void DummyPlayerData::loaded( unsigned key, mars::Reference<mars::Model<Impl>> model )
@@ -78,12 +82,25 @@ namespace nyx
     key = key ;
     this->bus.emitIndexed( model, this->model_slot, this->draw_signal.c_str() ) ;
   }
+  
+  void DummyPlayerData::loaded( unsigned key, mars::Reference<mars::Texture<Impl>> texture )
+  {
+    key = key ;
+    this->bus.emitIndexed( texture, this->model_slot, this->draw_signal.c_str() ) ;
+  }
 
   void DummyPlayerData::setRequiredModel( unsigned id )
   {
     this->model_id   = id                ;
-    this->dirty      = true              ;
+    this->dirty_model      = true        ;
     this->transform  = glm::mat4( 1.0f ) ;
+  }
+  
+  void DummyPlayerData::setRequiredTexture( unsigned id )
+  {
+    this->texture_id    = id                ;
+    this->dirty_texture = true              ;
+    this->transform     = glm::mat4( 1.0f ) ;
   }
 
   void DummyPlayerData::setWait( const char* signal )
@@ -144,11 +161,13 @@ namespace nyx
 
   DummyPlayerData::DummyPlayerData()
   {
-    this->model_slot = 0          ;
-    this->model_id   = UINT32_MAX ;
-    this->ready      = false      ;
-    this->dirty      = false      ;
-    this->dirty_pos  = true       ;
+    this->model_slot    = 0          ;
+    this->model_id      = UINT32_MAX ;
+    this->texture_id    = UINT32_MAX ;
+    this->ready         = false      ;
+    this->dirty_model   = false      ;
+    this->dirty_texture = false      ;
+    this->dirty_pos     = true       ;
   }
 
   DummyPlayer::DummyPlayer()
@@ -172,11 +191,12 @@ namespace nyx
     data().bus.setChannel( id ) ;
     data().name = this->name() ;
     
-    data().bus.enroll( this->module_data, &DummyPlayerData::setRequiredModel, iris::OPTIONAL, this->name(), "::model"    ) ;
-    data().bus.enroll( this->module_data, &DummyPlayerData::setWait         , iris::OPTIONAL, this->name(), "::wait"     ) ;
-    data().bus.enroll( this->module_data, &DummyPlayerData::setSignal       , iris::OPTIONAL, this->name(), "::signal"   ) ;
-    data().bus.enroll( this->module_data, &DummyPlayerData::setDrawer       , iris::OPTIONAL, this->name(), "::renderer" ) ;
-    data().bus.enroll( this->module_data, &DummyPlayerData::setPosition     , iris::OPTIONAL, this->name(), "::position" ) ;
+    data().bus.enroll( this->module_data, &DummyPlayerData::setRequiredModel  , iris::OPTIONAL, this->name(), "::model"    ) ;
+    data().bus.enroll( this->module_data, &DummyPlayerData::setRequiredTexture, iris::OPTIONAL, this->name(), "::texture"  ) ;
+    data().bus.enroll( this->module_data, &DummyPlayerData::setWait           , iris::OPTIONAL, this->name(), "::wait"     ) ;
+    data().bus.enroll( this->module_data, &DummyPlayerData::setSignal         , iris::OPTIONAL, this->name(), "::signal"   ) ;
+    data().bus.enroll( this->module_data, &DummyPlayerData::setDrawer         , iris::OPTIONAL, this->name(), "::renderer" ) ;
+    data().bus.enroll( this->module_data, &DummyPlayerData::setPosition       , iris::OPTIONAL, this->name(), "::position" ) ;
   }
 
   void DummyPlayer::shutdown()
@@ -187,12 +207,16 @@ namespace nyx
   {
     data().bus.wait() ;
     
-    if( data().dirty && data().model_id != UINT32_MAX )
+    if( data().dirty_model && data().model_id != UINT32_MAX )
     {
       ModelManager::request( this->module_data, &DummyPlayerData::loaded, data().model_id ) ;
-      data().dirty = false ;
+      data().dirty_model = false ;
     }
-      
+    if( data().dirty_texture && data().texture_id != UINT32_MAX )
+    {
+      TextureManager::request( this->module_data, &DummyPlayerData::loaded, data().texture_id ) ;
+      data().dirty_texture = false ;
+    }
     if( data().dirty_pos )
     { 
       data().transform = glm::mat4( 1.0f ) ;
