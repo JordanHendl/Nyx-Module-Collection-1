@@ -1,0 +1,22 @@
+FIND_PACKAGE( NyxGPU REQUIRED )
+FIND_PACKAGE( Iris   REQUIRED )
+
+SET( NYX_IMAGE_COMBINER_MODULE_HEADERS 
+      ImageCombiner.h
+   )
+
+SET( NYX_IMAGE_COMBINER_MODULE_SOURCES
+      ImageCombiner.cpp
+   )
+
+SET( NYX_IMAGE_COMBINER_MODULE_LIBRARIES
+     iris_module
+     iris_bus
+     nyx_library
+     nyx_vkg
+   )
+
+ADD_LIBRARY          ( NyxImageCombiner SHARED ${NYX_IMAGE_COMBINER_MODULE_SOURCES} ${NYX_IMAGE_COMBINER_MODULE_HEADERS} )
+TARGET_LINK_LIBRARIES( NyxImageCombiner PUBLIC ${NYX_IMAGE_COMBINER_MODULE_LIBRARIES}                                    )
+
+INSTALL( TARGETS NyxImageCombiner DESTINATION ${LIB_DIR} COMPONENT release )

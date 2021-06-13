@@ -1,0 +1,108 @@
+{
+  "graph_1" :
+  {
+    "Modules" : 
+    {
+      # Nyx by default uses vulkan. Since we're still in alpha for a lot of things, this module provides debug tools.
+      "nyx_debug" :
+      {
+        "type" : "NyxDebug", 
+        "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
+      },
+      # This is a dummy player module. It simulates a player by moving the model when the arrow keys are pressed.
+      "nyx_player" :
+      {
+        "type"     : "NyxDummyPlayer",
+        "Pipeline" : "input_textures_here",
+        "texture"  : 0,
+        "position" : { "x" : 0.0, "y" : 0.0, "z" : 0.0 }
+      },
+      # A Window module to create a window using the given ID and parameters.
+      "nyx_window" :
+      {
+        "type"          : "NyxWindow",
+        "width"         : 1280,
+        "height"        : 1024,
+        "title"         : "NyxWindow",
+        "quit_iris"     : true,
+        "capture_mouse" : false,
+        "id"            : 0
+      },
+      # A camera module to simulate a FPS camera.
+      "nyx_camera" :
+      {
+        "type"    : "NyxCamera",
+        "output"  : [ "nyx_camera_input" ],
+        "target"  : "look_at_this"
+      },
+      # A Database module to handle both loading and paging in assets.
+      "nyx_database" :
+      {
+        "type"   : "NyxDatabase",
+        "path"   : "/wksp/test/iris_test/database.json",
+        "device" : 0
+      },
+      # A Start Render module. It signals the start of a render pass on the GPU.
+      "nyx_begin" :
+      {
+        "type"          : "NyxStartDraw",
+        "window_id"     : 0,
+        "device"        : 0,
+        "width"         : 1280,
+        "height"        : 1024,
+        "projection"    : "nyx_begin_projection",
+        "subpasses"     : [ 
+                            {
+                              "output"       : "combine_this",
+                              "depth_enable" : true,
+                              "attachments"  : [ 
+                                                 { "format" : "RGBA8", "stencil_clear" : true, "layout" : "Color", "clear_color" : [ 0.1, 0.1, 0.2, 1.0 ] },
+                                                 { "format" : "RGBA8", "stencil_clear" : true, "layout" : "Color", "clear_color" : [ 0.1, 0.1, 0.2, 1.0 ] }
+                                               ]
+                            }
+                          ],
+        "input"         : [ "presented" ],
+        "output"        : [ "render_pass_finish"  ] ,
+        "stage2_input"  : [ "texture_1_finish", "texture_2_finish" ],
+        "stage2_output" : "presented",
+        "references"    : [ "draw1" ],
+        "children"      : [ "texture_1_ref", "texture_2_ref "]
+      },
+      "nyx_draw_texture" :
+      {
+        "type"           : "NyxDrawTex2D",
+        "input"          : [ "render_pass_finish" ],
+        "output"         : "texture_1_finish",
+        "parent"         : "draw1",
+        "reference"      : "texture_1_ref",
+        "projection"     : "nyx_begin_projection",
+        "camera"         : "nyx_camera_input",
+        "database"       : "database",
+        "texture_input"  : "input_textures_here",
+        "texture_remove" : "remove_textures_here", 
+        "device"         : 0
+      },
+      "nyx_draw_sprite" :
+      {
+        "type"           : "NyxDrawSprite",
+        "input"          : [ "render_pass_finish" ],
+        "output"         : "texture_2_finish",
+        "parent"         : "draw1",
+        "reference"      : "texture_2_ref",
+        "projection"     : "nyx_begin_projection",
+        "camera"         : "nyx_camera_input",
+        "database"       : "database",
+        "sprite_input"   : "input_textures_here",
+        "sprite_remove"  : "remove_sprites_here", 
+        "device"         : 0,
+        "sprites"        :
+        [
+          { "ID" : 0, "sprite_width" : 64, "sprite_height" : 64 },
+          { "ID" : 1, "sprite_width" : 64, "sprite_height" : 64 },
+          { "ID" : 2, "sprite_width" : 64, "sprite_height" : 64 }
+        ]
+      }
+    }
+  }
+}
+

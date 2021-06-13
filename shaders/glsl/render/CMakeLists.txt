@@ -1,0 +1,8 @@
+ADD_SUBDIRECTORY( blit                  )
+ADD_SUBDIRECTORY( draw                  )
+ADD_SUBDIRECTORY( graph_draw_model      )
+ADD_SUBDIRECTORY( graph_draw_texture    )
+#ADD_SUBDIRECTORY( graph_draw_sprite     )
+#ADD_SUBDIRECTORY( layer_images          )
+ADD_SUBDIRECTORY( test                  )
+ADD_SUBDIRECTORY( test_subpass          )

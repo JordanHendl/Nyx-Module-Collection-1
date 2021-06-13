@@ -1,0 +1,24 @@
+FIND_PACKAGE( NyxGPU REQUIRED )
+FIND_PACKAGE( Iris   REQUIRED )
+
+SET( NYX_CAMERA_HEADERS 
+      NyxCamera.h
+   )
+
+SET( NYX_CAMERA_SOURCES
+      NyxCamera.cpp
+   )
+
+SET( NYX_CAMERA_LIBRARIES
+     iris_module
+     iris_bus
+     nyx_event
+     nyx_vkg
+   )
+
+ADD_LIBRARY               ( NyxCamera SHARED ${NYX_CAMERA_SOURCES} ${NYX_CAMERA_HEADERS} )
+TARGET_INCLUDE_DIRECTORIES( NyxCamera PRIVATE ${GLM_INCLUDE_DIRS}                        )
+TARGET_LINK_LIBRARIES     ( NyxCamera PUBLIC ${NYX_CAMERA_LIBRARIES}                     )
+
+BUILD_TEST( TARGET NyxCamera DEPENDS ${NYX_CAMERA_LIBRARIES} )
+INSTALL( TARGETS NyxCamera DESTINATION ${LIB_DIR} COMPONENT release )

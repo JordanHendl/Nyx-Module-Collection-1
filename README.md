@@ -4,12 +4,13 @@
 ## Dependancies: 
   Iris Framework  : https://github.com/JordanHendl/Iris
 
-
   Nyx GPU Library : https://github.com/JordanHendl/Nyx
+  
+  Mars Utility Library : https://github.com/JordanHendl/Mars
 
+  If tests are to be generated
+  Athena Testing Library : https://github.com/JordanHendl/Athena
+
+  Example pipelines:
 
   
-  If tests are to be generate
-
-
-  Athena Testing Library : https://github.com/JordanHendl/Athena

@@ -1,6 +1,5 @@
-SET(CMAKE_SHARED_LIBRARY_PREFIX "" )
+SET( CMAKE_SHARED_LIBRARY_PREFIX "" )
 
-ADD_SUBDIRECTORY( NyxImageChooser      ) 
-ADD_SUBDIRECTORY( VulkanDebug          ) 
-ADD_SUBDIRECTORY( NyxVkgImageConverter ) 
-ADD_SUBDIRECTORY( NyxWindow            ) 
+ADD_SUBDIRECTORY( compute   )
+ADD_SUBDIRECTORY( utility   )
+ADD_SUBDIRECTORY( rendering )
