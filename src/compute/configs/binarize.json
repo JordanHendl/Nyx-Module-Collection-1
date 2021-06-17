@@ -1,0 +1,96 @@
+{
+  "graph_1" :
+  {
+    "Modules" : 
+    {
+      "nyx_debug" :
+      {
+        "type" : "NyxDebug", 
+        "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
+      },
+      "iris_image_loader" :
+      {
+        "type" : "IrisSequencer",
+        
+        #"file"     : "/home/jhendl/Pictures/lenna.png",
+        #"file"     : "/home/jhendl/Pictures/ir_test_1.jpg",
+        "file"     : "/home/jhendl/Videos/duck_dance_trimmed",
+        
+        "recursive" : true,
+        "bytes"    : "iris_image_loader.bytes",
+        "width"    : "iris_image_loader.width",   
+        "height"   : "iris_image_loader.height",  
+        "channels" : "iris_image_loader.channels"
+      },
+      "nyx_image_converter" :
+      {
+        "type" : "NyxImageConverter",
+        
+        "gpu"    : 0,
+        "input"  : [ "iris_image_loader.bytes", "iris_image_loader.width", "iris_image_loader.height", "iris_image_loader.channels" ],
+        "output" : "nyx_image_converter.image"
+      },
+      "nyx_binarize" :
+      {
+        "type" : "NyxBinarize",
+        
+        "threshold" : 0.98	,
+        
+        "input"  : "nyx_image_converter.image",
+        "output" : "nyx_binarize.output"
+      },
+      "nyx_window" :
+      {
+        "type"          : "NyxWindow",
+
+        "width"         : 1280,
+        "height"        : 1024,
+        "title"         : "NyxWindow",
+        "quit_iris"     : true,
+        "capture_mouse" : false,
+        "id"            : 0
+      },
+      "nyx_begin" :
+      {
+        "type"          : "NyxStartDraw",
+        
+        "window_id"     : 0,
+        "device"        : 0,
+        "width"         : 1024,
+        "height"        : 2048,
+        "fov"           : 90.0,
+        "subpasses"     : [ 
+                            {
+                              "output"       : "subpass_index",
+                              "depth_enable" : true,
+                              "attachments"  : [ 
+                                                 { "format" : "RGBA8", "stencil_clear" : true, "layout" : "Color", "clear_color" : [ 0.1, 0.1, 0.2, 1.0 ] }
+                                               ]
+                            }
+                          ],
+
+        "children" : [ "nyx_blit.reference" ],
+        "wait"     : "nyx_blit.finish",
+        
+        "child_signal": "nyx_begin.child_signal",
+        "projection"  : "nyx_begin.projection",
+        "reference"   : "nyx_begin.reference",
+        "finish"      : "nyx_begin.finish"
+      },
+      "nyx_blit" :
+      {
+        "type"           : "NyxDrawBlit",
+        
+        "subpass"   : 0,
+        "width"     : 1280,
+        "height"    : 1024,
+        
+        "image"     : "nyx_binarize.output",
+        "parent"    : "nyx_begin.reference",
+        "reference" : "nyx_blit.reference",
+        "finish"    : "nyx_blit.finish"
+      }
+    }
+  }
+}
+

@@ -1,0 +1,95 @@
+{
+  "graph_1" :
+  {
+    "Modules" : 
+    {
+      "nyx_debug" :
+      {
+        "type" : "NyxDebug", 
+        #"validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
+      },
+      "nyx_window" :
+      {
+        "type"          : "NyxWindow",
+
+        "width"         : 1280,
+        "height"        : 1024,
+        "title"         : "NyxWindow",
+        "quit_iris"     : true,
+        "capture_mouse" : false,
+        "id"            : 0
+      },
+      "nyx_player" :
+      {
+        "type"     : "NyxDummyPlayer",
+        
+        "texture"  : 0,
+        "position" : { "x" : 0.0, "y" : 0.0, "z" : 0.0 },
+        
+        "Pipeline" : "nyx_draw_tex2D.drawable"
+      },
+      "nyx_camera" :
+      {
+        "type"    : "NyxCamera",
+        
+        "target"  : "nyx_camera.camera",
+        
+        "output"  : "nyx_camera.output"
+      },
+      "nyx_database" :
+      {
+        "type"   : "NyxDatabase",
+        
+        "path"   : "./database.json",
+        "device" : 0,
+        
+        "models" : "nyx_database.model",
+        "texture": "nyx_database.texture"
+      },
+      "nyx_begin" :
+      {
+        "type"          : "NyxStartDraw",
+        
+        "window_id"     : 0,
+        "device"        : 0,
+        "width"         : 1280,
+        "height"        : 1024,
+        "fov"           : 90.0,
+        "subpasses"     : [ 
+                            {
+                              "output"       : "subpass_index",
+                              "depth_enable" : true,
+                              "attachments"  : [ 
+                                                 { "format" : "RGBA8", "stencil_clear" : true, "layout" : "Color", "clear_color" : [ 0.1, 0.1, 0.2, 1.0 ] }
+                                               ]
+                            }
+                          ],
+
+        "children" : [ "nyx_draw_tex2D.reference" ],
+        "wait"     : "nyx_draw_tex2D.finish",
+        
+        "child_signal": "nyx_begin.child_signal",
+        "projection"  : "nyx_begin.projection",
+        "reference"   : "nyx_begin.reference",
+        "finish"      : "nyx_begin.finish"
+      },
+      "nyx_draw_tex2D" :
+      {
+        "type"           : "NyxDrawTex2D",
+        
+        "subpass"        : 0,
+        "width"          : 1280,
+        "height"         : 1024,
+        
+        "parent"     : "nyx_begin.reference",
+        "camera"     : "nyx_camera.output",
+        "projection" : "nyx_begin.projection",
+        "drawable"   : "nyx_draw_tex2D.drawable",
+        
+        "reference" : "nyx_draw_tex2D.reference",
+        "finish"    : "nyx_draw_tex2D.finish"
+      }
+    }
+  }
+}
+

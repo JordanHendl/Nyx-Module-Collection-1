@@ -1,0 +1,23 @@
+FIND_PACKAGE( NyxGPU     REQUIRED )
+FIND_PACKAGE( Iris       REQUIRED )
+
+SET( NYX_IMAGE_CHOOSER_MODULE_HEADERS 
+      ImageChooser.h
+   )
+
+SET( NYX_IMAGE_CHOOSER_MODULE_SOURCES
+      ImageChooser.cpp
+   )
+
+SET( NYX_IMAGE_CHOOSER_MODULE_LIBRARIES
+     iris_module
+     iris_bus
+     nyx_library
+     nyx_vkg
+   )
+
+ADD_LIBRARY               ( NyxImageChooser SHARED ${NYX_IMAGE_CHOOSER_MODULE_SOURCES} ${NYX_IMAGE_CHOOSER_MODULE_HEADERS} )
+TARGET_LINK_LIBRARIES     ( NyxImageChooser PUBLIC ${NYX_IMAGE_CHOOSER_MODULE_LIBRARIES}                                   )
+#BUILD_TEST( TARGET ImageChooser DEPENDS ${NYX_WINDOW_MODULE_LIBRARIES} ) 
+
+INSTALL( TARGETS NyxImageChooser DESTINATION ${LIB_DIR} COMPONENT release )
