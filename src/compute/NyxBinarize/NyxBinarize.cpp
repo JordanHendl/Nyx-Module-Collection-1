@@ -40,7 +40,6 @@ namespace nyx
         this->pipeline().bind( "input_tex" , *this->data.input        ) ;
         this->pipeline().bind( "output_tex", this->data.binarized_map ) ;
         
-        
         chain.begin() ;
         chain.push( pipeline, this->data.threshold ) ;
         chain.dispatch( pipeline, wx, wy ) ;

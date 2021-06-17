@@ -34,6 +34,7 @@
 #include <limits.h>
 #include <algorithm>
 #include <vector>
+#include <cmath>
 
 static const unsigned VERSION = 1 ;
 
@@ -258,22 +259,10 @@ namespace nyx
             data().staging_buffer.initialize( data().device, img_size + 10000, true ) ;
           }
           
-          std::fill( data().converted_bytes.begin(), data().converted_bytes.end(), 0.2f ) ;
-          for( unsigned y = 0; y < data().height; y++ )
-          {
-            for( unsigned x = 0; x < data().width; x++ )
-            {
-              for( unsigned ch = 0; ch < data().channels; ch++ )
-              {
-                const unsigned index = ( x * 4 ) + ( y * data().width ) * ( 1 + ch ) ;
-              
-                data().converted_bytes[ index + 0 ] = static_cast<float>( data().host_bytes[ index + 0 ] ) / static_cast<float>( UCHAR_MAX ) ;
-                data().converted_bytes[ index + 1 ] = static_cast<float>( data().host_bytes[ index + 1 ] ) / static_cast<float>( UCHAR_MAX ) ;
-                data().converted_bytes[ index + 2 ] = static_cast<float>( data().host_bytes[ index + 2 ] ) / static_cast<float>( UCHAR_MAX ) ;
-                data().converted_bytes[ index + 3 ] = static_cast<float>( data().host_bytes[ index + 3 ] ) / static_cast<float>( UCHAR_MAX ) ;
-              }
-            }
-          }
+          
+          std::fill( data().converted_bytes.begin(), data().converted_bytes.end(), 1.0f ) ;
+          std::transform( data().host_bytes, data().host_bytes + ( img_size ), data().converted_bytes.begin(),
+                  []( unsigned char c ) -> float { return static_cast<float>( c ) / static_cast<float>( UCHAR_MAX ) ; } ) ;   
 
           data().chain.transition( data().converted_img, nyx::ImageLayout::TransferSrc ) ;
           data().chain.copy( data().converted_bytes.data(), data().staging_buffer, img_size   ) ;

@@ -88,7 +88,7 @@ namespace nyx
   
   void NyxDrawBlit::draw()
   {
-    if( this->data.input )
+    if( this->data.input && NyxDrawModule::dirty() )
     {
       Log::output( "Module ", this->name(), " redrawing!" ) ;
       Framework::deviceSynchronize( this->gpu() ) ;
@@ -97,9 +97,8 @@ namespace nyx
       this->chain().begin() ;
       this->chain().draw( this->pipeline(), this->data.vertices ) ;
       this->chain().end() ;
-      
+      NyxDrawModule::draw() ;
       this->emit() ;
-      this->data.input = nullptr ;
     }
   }
   

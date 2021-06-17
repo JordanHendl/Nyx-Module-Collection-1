@@ -256,7 +256,7 @@ namespace nyx
       {
         data().transform = glm::mat4( 1.0f ) ;
         data().transform = glm::translate( data().transform, data().position ) ;
-//        data().transform = glm::rotate( data().transform, glm::radians( data().rotation ), glm::vec3( 0, 0, 1.0f ) ) ;
+        data().transform = glm::rotate( data().transform, glm::radians( data().rotation ), glm::vec3( 0, 0, 1.0f ) ) ;
         data().bus.emitIndexed( data().transform, data().model_slot, data().draw_signal.c_str() ) ;
       }
       else

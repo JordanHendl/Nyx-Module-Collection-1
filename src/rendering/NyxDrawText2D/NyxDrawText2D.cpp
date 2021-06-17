@@ -37,26 +37,12 @@ static const unsigned VERSION = 1 ;
 namespace nyx
 {
   constexpr unsigned TRANSFORM_SIZE = 2048 ;
-  using Framework = nyx::vkg::Vulkan ;
-  struct NyxDrawText2DData
-  {
-    void addString( const char* string ) ;
-    
-    std::queue<std::string> strings ;
-  };
-  
-  void NyxDrawText2DData::addString( const char* string )
-  {
-    this->strings.push( std::string( string ) ) ;
-  }
-
-  static NyxDrawText2DData data_2d ;
   
   NyxDrawText2D::NyxDrawText2D()
   {
-    auto function = [=] ( unsigned , mars::Reference<mars::Font<Framework>>& , nyx::Chain<Framework>& , nyx::Pipeline<Framework>&  )
+    auto function = [=] ( unsigned , std::string& string, nyx::Chain<Framework>& , nyx::Pipeline<Framework>&  )
     {
-      data_2d.strings.size() ;
+      string.size() ;
     };
     
     NyxDrawModule::setTransformKey   ( "transforms"                                               ) ;
@@ -75,12 +61,17 @@ namespace nyx
     
   }
   
+  void NyxDrawText2D::setFontName( const char* font_name )
+  {
+    std::string name = font_name ;
+  }
+  
   void NyxDrawText2D::subscribe( unsigned id )
   {
     this->bus.setChannel( id ) ;
     NyxDrawModule::subscribe( this->bus ) ;
     
-    this->bus.enroll( &data_2d, &NyxDrawText2DData::addString, iris::OPTIONAL, this->name(), "::string" ) ;
+    this->bus.enroll( this, &NyxDrawText2D::setFontName, iris::OPTIONAL, this->name(), "::font" ) ;
   }
   
   void NyxDrawText2D::shutdown()

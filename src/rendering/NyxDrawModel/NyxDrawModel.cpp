@@ -71,7 +71,7 @@ namespace nyx
         
         this->copy_chain.copy( &viewproj, this->d_viewproj ) ;
         this->copy_chain.submit     () ;
-        this->copy_chain.synchronize() ;
+//        this->copy_chain.synchronize() ;
       }
     }
   };

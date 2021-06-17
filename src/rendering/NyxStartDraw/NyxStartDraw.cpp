@@ -41,6 +41,8 @@
 #include <climits>
 #include <map>
 #include <glm/ext/matrix_clip_space.hpp>
+#include <chrono>
+#include <thread>
 
 static const unsigned VERSION = 1 ;
 namespace nyx
@@ -435,8 +437,13 @@ namespace nyx
         this->render_chain.end() ;
         
         // Submit and present.
-        this->render_chain.submit () ;
-        this->render_pass .present() ;
+//        this->render_chain.submit() ;
+        if( this->render_pass.present( this->render_chain ) )
+        {
+          Log::output( "Module", this->name.c_str(), " has had problem presenting to screen. Telling children to recreate.." ) ;
+          this->ref_bus.emit() ;
+          this->chain_map.clear() ;
+        }
       }
       else
       {

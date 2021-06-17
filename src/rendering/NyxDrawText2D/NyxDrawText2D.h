@@ -27,7 +27,7 @@ namespace nyx
 {
   /** A module for managing converting images on the host to Vulkan images on the GPU.
    */
-  class NyxDrawText2D : public nyx::NyxDrawModule<mars::Reference<mars::Font<nyx::vkg::Vulkan>>>
+  class NyxDrawText2D : public nyx::NyxDrawModule<std::string>
   {
     public:
 
@@ -56,7 +56,11 @@ namespace nyx
        */
       void execute() ;
 
+      void setFontName( const char* string ) ;
     private:
-      iris::Bus bus ;
+      
+      mars::Reference<mars::Font<Framework>> font      ;
+      std::string                            font_name ;
+      iris::Bus                              bus       ;
   };
 }

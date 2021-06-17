@@ -5,7 +5,7 @@
     {
       "nyx_debug" :
       {
-        "type" : "NyxDebug", 
+        "type" : "NyxDebug",
         "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
       },
       "iris_image_loader" :
@@ -16,11 +16,12 @@
         #"file"     : "/home/jhendl/Pictures/ir_test_1.jpg",
         "file"     : "/home/jhendl/Videos/duck_dance_trimmed",
         
-        "recursive" : true,
-        "bytes"    : "iris_image_loader.bytes",
-        "width"    : "iris_image_loader.width",   
-        "height"   : "iris_image_loader.height",  
-        "channels" : "iris_image_loader.channels"
+        "recursive"  : true,
+        "fps"        : 24,
+        "bytes"      : "iris_image_loader.bytes",
+        "width"      : "iris_image_loader.width",   
+        "height"     : "iris_image_loader.height",  
+        "channels"   : "iris_image_loader.channels"
       },
       "nyx_image_converter" :
       {
@@ -29,15 +30,6 @@
         "gpu"    : 0,
         "input"  : [ "iris_image_loader.bytes", "iris_image_loader.width", "iris_image_loader.height", "iris_image_loader.channels" ],
         "output" : "nyx_image_converter.image"
-      },
-      "nyx_binarize" :
-      {
-        "type" : "NyxBinarize",
-        
-        "threshold" : 0.98	,
-        
-        "input"  : "nyx_image_converter.image",
-        "output" : "nyx_binarize.output"
       },
       "nyx_window" :
       {
@@ -56,12 +48,11 @@
         
         "window_id"     : 0,
         "device"        : 0,
-        "width"         : 1024,
-        "height"        : 2048,
+        "width"         : 1280,
+        "height"        : 1024,
         "fov"           : 90.0,
         "subpasses"     : [ 
                             {
-                              "output"       : "subpass_index",
                               "depth_enable" : true,
                               "attachments"  : [ 
                                                  { "format" : "RGBA8", "stencil_clear" : true, "layout" : "Color", "clear_color" : [ 0.1, 0.1, 0.2, 1.0 ] }
@@ -79,13 +70,13 @@
       },
       "nyx_blit" :
       {
-        "type"           : "NyxDrawBlit",
+        "type"      : "NyxDrawBlit",
         
         "subpass"   : 0,
         "width"     : 1280,
         "height"    : 1024,
         
-        "image"     : "nyx_binarize.output",
+        "image"     : "nyx_image_converter.image",
         "parent"    : "nyx_begin.reference",
         "reference" : "nyx_blit.reference",
         "finish"    : "nyx_blit.finish"

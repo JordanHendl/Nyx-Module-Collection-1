@@ -52,68 +52,18 @@ namespace nyx
     glm::vec4( 1.0f,  0.0f, 1.0f, 1.0f ),
     glm::vec4( 1.0f, -1.0f, 1.0f, 0.0f )
   };
-      
-  static bool updated_textures = false ;
-  
-  struct NyxDrawTex2DData
-  {
-    nyx::Chain<Framework>             copy_chain ;
-    nyx::Array<Framework, glm::mat4 > d_viewproj ;
-    nyx::Array<Framework, unsigned  > d_indices  ;
-    nyx::Array<Framework, glm::vec4 > d_vertices ;
-    std::vector<unsigned>             indices    ;
-    iris::Bus                         bus        ;
-    bool                              dirty      ;
-    const glm::mat4*                  projection ;
-    const glm::mat4*                  camera     ;
-    unsigned                          count      ;
-    
-    NyxDrawTex2DData()                                      { this->dirty = false ; this->projection = nullptr ; this->camera = nullptr ;         } ;
-    void setProjectionInput( const char* input            ) { this->bus.enroll( this, &NyxDrawTex2DData::setProjection, iris::OPTIONAL, input ) ; } ;
-    void setCameraInput    ( const char* input            ) { this->bus.enroll( this, &NyxDrawTex2DData::setCamera    , iris::OPTIONAL, input ) ; } ;
-    void setProjection     ( const glm::mat4& val         ) { this->projection = &val ; this->dirty = true ;                                      } ;
-    void setCamera         ( const glm::mat4& val         ) { this->camera     = &val ; this->dirty = true ;                                      } ;
-    
-    void draw( nyx::Chain<Framework>& chain, nyx::Pipeline<Framework>& pipeline )
-    {
-      chain.begin() ;
-      chain.draw( pipeline, this->d_vertices ) ; 
-      chain.end() ;
-    };
-    
-    void updateViewProj()
-    {
-      glm::mat4 viewproj ;
-      if( this->dirty && this->projection != nullptr )
-      {
-        viewproj = ( glm::mat4( 1.0f ) ) ; 
-        
-        this->copy_chain.copy( &viewproj, this->d_viewproj ) ;
-        this->copy_chain.submit     () ;
-        this->copy_chain.synchronize() ;
-      }
-    }
-    
-    void updateTextureIds()
-    {
-      this->copy_chain.copy( this->indices.data(), this->d_indices ) ;
-      this->copy_chain.submit     () ;
-      this->copy_chain.synchronize() ;
-    }
-  };
-  
-  static NyxDrawTex2DData data_2d ;
   
   NyxDrawTex2D::NyxDrawTex2D()
   {
     auto function = [=] ( unsigned id, unsigned tex_id, nyx::Chain<Framework>& chain, nyx::Pipeline<Framework>& pipeline )
     {
-      data_2d.indices[ id ] = tex_id ;
-      data_2d.count++ ;
+      this->data_2d.indices[ id ] = tex_id ;
+      this->data_2d.count++ ;
       data_2d.draw( chain, pipeline ) ;
     };
     
-    data_2d.indices.resize( TRANSFORM_SIZE ) ;
+    this->updated_textures = false                 ;
+    this->data_2d.indices.resize( TRANSFORM_SIZE ) ;
     NyxDrawModule::setTransformFlag  ( nyx::ArrayFlags::StorageBuffer                           ) ;
     NyxDrawModule::setTransformKey   ( "transform"                                              ) ;
     NyxDrawModule::setTransformSize  ( TRANSFORM_SIZE                                           ) ;
@@ -132,22 +82,22 @@ namespace nyx
     Framework::deviceSynchronize( this->gpu() ) ;
     this->pipeline().bind( "textures", mars::TextureArray<Framework>::images(), mars::TextureArray<Framework>::count() ) ;
     Framework::deviceSynchronize( this->gpu() ) ;
-    nyx::updated_textures = true ;
+    this->updated_textures = true ;
   }
   
   void NyxDrawTex2D::initialize()
   {
-    data_2d.copy_chain.initialize( this->gpu(), nyx::ChainType::Compute                                       ) ;
-    data_2d.d_viewproj.initialize( this->gpu(), 1                     , false, nyx::ArrayFlags::UniformBuffer ) ;
-    data_2d.d_indices .initialize( this->gpu(), data_2d.indices.size(), false, nyx::ArrayFlags::StorageBuffer ) ;
-    data_2d.d_vertices.initialize( this->gpu(), 6                     , false, nyx::ArrayFlags::Vertex        ) ;
+    this->data_2d.copy_chain.initialize( this->gpu(), nyx::ChainType::Compute                                             ) ;
+    this->data_2d.d_viewproj.initialize( this->gpu(), 1                           , false, nyx::ArrayFlags::UniformBuffer ) ;
+    this->data_2d.d_indices .initialize( this->gpu(), this->data_2d.indices.size(), false, nyx::ArrayFlags::StorageBuffer ) ;
+    this->data_2d.d_vertices.initialize( this->gpu(), 6                           , false, nyx::ArrayFlags::Vertex        ) ;
     
-    NyxDrawModule::pipeline().bind( "projection", data_2d.d_viewproj ) ;
-    NyxDrawModule::pipeline().bind( "texture_id", data_2d.d_indices  ) ;
+    NyxDrawModule::pipeline().bind( "projection", this->data_2d.d_viewproj ) ;
+    NyxDrawModule::pipeline().bind( "texture_id", this->data_2d.d_indices  ) ;
     
-    data_2d.copy_chain.copy( nyx::vertices, data_2d.d_vertices ) ;
-    data_2d.copy_chain.submit     () ;
-    data_2d.copy_chain.synchronize() ;
+    this->data_2d.copy_chain.copy( nyx::vertices, this->data_2d.d_vertices ) ;
+    this->data_2d.copy_chain.submit     () ;
+    this->data_2d.copy_chain.synchronize() ;
 
     mars::TextureArray<Framework>::addCallback( this, &NyxDrawTex2D::updateTextures, this->name() ) ;
   }
@@ -157,24 +107,24 @@ namespace nyx
     this->bus.setChannel( id ) ;
     NyxDrawModule::subscribe( this->bus ) ;
     
-    this->bus.enroll( &data_2d, &NyxDrawTex2DData::setCameraInput    , iris::OPTIONAL, this->name(), "::camera"     ) ;
-    this->bus.enroll( &data_2d, &NyxDrawTex2DData::setProjectionInput, iris::OPTIONAL, this->name(), "::projection" ) ;
+    this->bus.enroll( &this->data_2d, &NyxDrawTex2DData::setCameraInput    , iris::OPTIONAL, this->name(), "::camera"     ) ;
+    this->bus.enroll( &this->data_2d, &NyxDrawTex2DData::setProjectionInput, iris::OPTIONAL, this->name(), "::projection" ) ;
   }
   
   void NyxDrawTex2D::shutdown()
   {
     NyxDrawModule::shutdown() ;
-    data_2d.d_viewproj.reset() ;
+    this->data_2d.d_viewproj.reset() ;
   }
   
   void NyxDrawTex2D::execute()
   {
-    if( nyx::updated_textures )
+    if( this->updated_textures )
     {
-      data_2d.updateViewProj() ;
-      data_2d.count = 0 ;
+      this->data_2d.updateViewProj() ;
+      this->data_2d.count = 0 ;
       this->draw() ;
-      data_2d.updateTextureIds() ;
+      this->data_2d.updateTextureIds() ;
     }
     this->bus.emit() ;
   }

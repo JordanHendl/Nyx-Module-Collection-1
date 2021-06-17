@@ -59,6 +59,55 @@ namespace nyx
       void execute() ;
 
     private:
-      iris::Bus bus ;
+      struct NyxDrawTex2DData
+      {
+        nyx::Chain<Framework>             copy_chain ;
+        nyx::Array<Framework, glm::mat4 > d_viewproj ;
+        nyx::Array<Framework, unsigned  > d_indices  ;
+        nyx::Array<Framework, glm::vec4 > d_vertices ;
+        std::vector<unsigned>             indices    ;
+        iris::Bus                         bus        ;
+        bool                              dirty      ;
+        const glm::mat4*                  projection ;
+        const glm::mat4*                  camera     ;
+        unsigned                          count      ;
+        
+        NyxDrawTex2DData()                                      { this->dirty = false ; this->projection = nullptr ; this->camera = nullptr ;         } ;
+        void setProjectionInput( const char* input            ) { this->bus.enroll( this, &NyxDrawTex2DData::setProjection, iris::OPTIONAL, input ) ; } ;
+        void setCameraInput    ( const char* input            ) { this->bus.enroll( this, &NyxDrawTex2DData::setCamera    , iris::OPTIONAL, input ) ; } ;
+        void setProjection     ( const glm::mat4& val         ) { this->projection = &val ; this->dirty = true ;                                      } ;
+        void setCamera         ( const glm::mat4& val         ) { this->camera     = &val ; this->dirty = true ;                                      } ;
+        
+        void draw( nyx::Chain<Framework>& chain, nyx::Pipeline<Framework>& pipeline )
+        {
+          chain.begin() ;
+          chain.draw( pipeline, this->d_vertices ) ; 
+          chain.end() ;
+        };
+        
+        void updateViewProj()
+        {
+          glm::mat4 viewproj ;
+          if( this->dirty && this->projection != nullptr )
+          {
+            viewproj = ( glm::mat4( 1.0f ) ) ; 
+            
+            this->copy_chain.copy( &viewproj, this->d_viewproj ) ;
+            this->copy_chain.submit     () ;
+            this->copy_chain.synchronize() ;
+          }
+        }
+        
+        void updateTextureIds()
+        {
+          this->copy_chain.copy( this->indices.data(), this->d_indices ) ;
+          this->copy_chain.submit     () ;
+          this->copy_chain.synchronize() ;
+        }
+      };
+      
+      bool             updated_textures ;
+      NyxDrawTex2DData data_2d          ;
+      iris::Bus        bus              ;
   };
 }

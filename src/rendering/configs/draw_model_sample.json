@@ -5,8 +5,8 @@
     {
       "nyx_debug" :
       {
-        "type" : "NyxDebug", 
-        "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
+        "type" : "NyxDebug"
+      #  "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
       },
       "nyx_window" :
       {

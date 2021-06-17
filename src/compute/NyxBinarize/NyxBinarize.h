@@ -70,9 +70,12 @@ namespace nyx
       this->mutex.lock() ;
       Framework::deviceSynchronize( this->gpu ) ;
       
-      this->binarized_map.setUsage( nyx::ImageUsage::Storage ) ;
-      this->binarized_map.reset() ;
-      this->binarized_map.initialize( nyx::ImageFormat::RGBA32F, this->gpu, image.width(), image.height(), image.layers() ) ;
+      if( image.width() != this->binarized_map.width() || image.height() != this->binarized_map.height() )
+      {
+        this->binarized_map.setUsage( nyx::ImageUsage::Storage ) ;
+        this->binarized_map.reset() ;
+        this->binarized_map.initialize( nyx::ImageFormat::RGBA32F, this->gpu, image.width(), image.height(), image.layers() ) ;
+      }
       
       this->input = &image ;
       this->dirty = true   ;

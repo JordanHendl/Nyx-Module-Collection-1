@@ -109,9 +109,14 @@ namespace nyx
       
       void setTransformFlag( nyx::ArrayFlags flag ) ;
       
+      void setPostInitCallback( std::function<void()> callback ) ;
+      
+      bool dirty() ;
+      
       void emit() ;
     private:
-      using DrawCallback = std::function<void( unsigned, Drawable&, nyx::Chain<Framework>&, nyx::Pipeline<Framework>& )> ;
+      using DrawCallback       = std::function<void( unsigned, Drawable&, nyx::Chain<Framework>&, nyx::Pipeline<Framework>& )> ;
+      using InitializeCallback = std::function<void()> ;
 
       void addDrawable( unsigned id, const Drawable& drawable ) ;
       void addDrawableTransform( unsigned id, const glm::mat4& transform ) ;
@@ -143,6 +148,7 @@ namespace nyx
       bool                                   transforms_dirty      ;
       bool                                   drawables_dirty       ;
       DrawCallback                           per_drawable_function ;
+      InitializeCallback                     init_callback         ;
       std::string                            transform_key         ;
       std::vector<glm::mat4>                 transforms            ;
       std::unordered_map<unsigned ,Drawable> drawables             ;
@@ -205,23 +211,26 @@ namespace nyx
     viewport.setWidth ( this->width  ) ;
     viewport.setHeight( this->height ) ;
     
-    if( !this->d_transforms   .initialized() ) this->d_transforms.initialize( this->gpu(), this->transforms.size(), false, this->array_flag ) ;
-    if( !this->copy_chain     .initialized() ) this->copy_chain  .initialize( this->gpu(), nyx::ChainType::Compute                          ) ;
+    if( !this->d_transforms.initialized() ) this->d_transforms.initialize( this->gpu(), this->transforms.size(), false, this->array_flag ) ;
+    if( !this->copy_chain  .initialized() ) this->copy_chain  .initialize( this->gpu(), nyx::ChainType::Compute                          ) ;
     
-    if( !this->render_chain.initialized() )
+    if( this->render_chain.initialized() )
     {
-      this->render_chain.setMode( nyx::ChainMode::All ) ;
-      this->render_chain.initialize( *this->parent_chain, this->subpass_id ) ;
+      this->render_chain.reset() ;
     }
 
-    if( !this->render_pipeline.initialized() )
+    if( this->render_pipeline.initialized() )
     {
-      this->render_pipeline.setTestDepth( true                                                           ) ;
-      this->render_pipeline.addViewport ( viewport                                                       ) ;
-      this->render_pipeline.initialize  ( *this->parent_pass, this->pipeline_bytes, this->pipeline_size  ) ;
-      this->render_pipeline.bind        ( this->transform_key.c_str(), this->d_transforms                ) ;
+      this->render_pipeline.reset() ;
     }
     
+    this->render_chain.setMode        ( nyx::ChainMode::All                                            ) ;
+    this->render_chain.initialize     ( *this->parent_chain, this->subpass_id                          ) ;
+    this->render_pipeline.setTestDepth( true                                                           ) ;
+    this->render_pipeline.addViewport ( viewport                                                       ) ;
+    this->render_pipeline.initialize  ( *this->parent_pass, this->pipeline_bytes, this->pipeline_size  ) ;
+    this->render_pipeline.bind        ( this->transform_key.c_str(), this->d_transforms                ) ;
+    if( this->init_callback ) this->init_callback() ;
     Log::output( "NyxDrawModule ", this->name(), " initialized!" ) ;
   }
 
@@ -229,6 +238,12 @@ namespace nyx
   void NyxDrawModule<Drawable>::setPerDrawCallback( std::function<void( unsigned, Drawable&, nyx::Chain<Framework>&, nyx::Pipeline<Framework>& )> callback )
   {
     this->per_drawable_function = callback ;
+  }
+  
+  template<typename Drawable>
+  void NyxDrawModule<Drawable>::setPostInitCallback( std::function<void()> callback )
+  {
+    this->init_callback = callback ;
   }
   
   template<typename Drawable>
@@ -242,7 +257,7 @@ namespace nyx
   {
     Log::output( "NyxDrawModule ", this->name(), " set parent render pass to ", static_cast<const void*>( &render_pass ) ) ;
     this->parent_pass = &render_pass ;
-    
+    this->drawables_dirty = true ;
     if( this->parent_chain && this->subpass_id != UINT_MAX )
     {
       NyxDrawModule::initialize() ;
@@ -254,6 +269,7 @@ namespace nyx
   {
     Log::output( "NyxDrawModule ", this->name(), " set parent render chain to ", static_cast<const void*>( &chain ) ) ;
     this->parent_chain = &chain ; 
+    this->drawables_dirty = true ;
     
     if( this->parent_pass && this->subpass_id != UINT_MAX )
     {
@@ -311,6 +327,12 @@ namespace nyx
     }
   }
   
+  template<typename Drawable>
+  bool NyxDrawModule<Drawable>::dirty()
+  {
+    return this->drawables_dirty ;
+  }
+
   template<typename Drawable>
   void NyxDrawModule<Drawable>::emit()
   {
@@ -403,7 +425,7 @@ namespace nyx
         this->copy_chain.synchronize() ;
         this->transforms_dirty = false ;
       }
-  
+      
       if( function && this->drawables_dirty && this->render_chain.initialized() )
       {
         this->render_chain.begin() ;
@@ -416,12 +438,12 @@ namespace nyx
         this->render_chain.end() ;
 //        Log::output( "NyxDrawModule ", this->name(), " signalling ", this->reference_key.c_str() ) ;
         this->emit() ;
-        this->drawables_dirty = false ;
       }
       else
       {
         this->render_chain.advance() ;
       }
+      this->drawables_dirty = false ;
     }
   }
   

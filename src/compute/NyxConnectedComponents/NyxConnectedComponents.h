@@ -93,13 +93,14 @@ namespace nyx
         this->mutex.lock() ;
         Framework::deviceSynchronize( this->gpu() ) ;
         
-        this->indexed_map.setUsage( nyx::ImageUsage::Storage ) ;
-        this->indexed_map.reset() ;
-        this->d_indices  .reset() ;
-        
-        this->indexed_map.initialize( nyx::ImageFormat::RGBA32F, this->gpu(), image.width(), image.height(), image.layers()               ) ;
-        this->d_indices  .initialize( this->gpu(), image.width() * image.height() * image.layers(), false, nyx::ArrayFlags::StorageBuffer ) ;
-        
+        if( image.width() != this->indexed_map.width() || image.height() != this->indexed_map.height() )
+        {
+          this->indexed_map.setUsage( nyx::ImageUsage::Storage ) ;
+          this->indexed_map.reset() ;
+          this->d_indices  .reset() ;
+          this->indexed_map.initialize( nyx::ImageFormat::RGBA32F, this->gpu(), image.width(), image.height(), image.layers()               ) ;
+          this->d_indices  .initialize( this->gpu(), image.width() * image.height() * image.layers(), false, nyx::ArrayFlags::StorageBuffer ) ;
+        }
         this->input = &image ;
         this->dirty = true   ;
         

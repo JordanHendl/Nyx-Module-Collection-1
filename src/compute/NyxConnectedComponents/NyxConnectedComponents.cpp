@@ -35,6 +35,11 @@ namespace nyx
         
         this->mutex.lock() ;
         
+        chain.begin() ;
+        chain.transition( this->indexed_map, nyx::ImageLayout::General ) ;
+        chain.submit     () ;
+        chain.synchronize() ;
+
         this->pipeline()       .bind( "input_tex" , *this->input      ) ;
         this->pipeline()       .bind( "index_map" , this->d_indices   ) ;
         this->boundary_analysis.bind( "input_tex" , *this->input      ) ;
@@ -43,7 +48,6 @@ namespace nyx
         this->global_uf        .bind( "output_tex", this->indexed_map ) ;
         
         chain.begin() ;
-        chain.transition( this->indexed_map, nyx::ImageLayout::General ) ;
         chain.push( pipeline               , this->indexed_map.width() ) ;
         chain.push( this->boundary_analysis, this->indexed_map.width() ) ;
         chain.push( this->global_uf        , this->indexed_map.width() ) ;

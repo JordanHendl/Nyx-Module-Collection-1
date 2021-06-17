@@ -5,19 +5,23 @@
     {
       "nyx_debug" :
       {
-        "type" : "NyxDebug", 
-#        "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
+        "type" : "NyxDebug",
+        "validation_layers" : [ "VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation" ] 
       },
       "iris_image_loader" :
       {
-        "type" : "IrisReadImage",
+        "type" : "IrisSequencer",
         
-        "file"     : "/home/jhendl/Pictures/lenna.png",
+        #"file"     : "/home/jhendl/Pictures/lenna.png",
+        #"file"     : "/home/jhendl/Pictures/ir_test_1.jpg",
+        "file"     : "/home/jhendl/Videos/duck_dance_trimmed",
         
-        "bytes"    : "iris_image_loader.bytes",
-        "width"    : "iris_image_loader.width",   
-        "height"   : "iris_image_loader.height",  
-        "channels" : "iris_image_loader.channels"
+        "recursive"  : true,
+        "fps"        : 5000,
+        "bytes"      : "iris_image_loader.bytes",
+        "width"      : "iris_image_loader.width",   
+        "height"     : "iris_image_loader.height",  
+        "channels"   : "iris_image_loader.channels"
       },
       "nyx_image_converter" :
       {
@@ -31,7 +35,7 @@
       {
         "type" : "NyxBinarize",
         
-        "threshold" : 0.25,
+        "threshold" : 0.45,
         
         "input"  : "nyx_image_converter.image",
         "output" : "nyx_binarize.output"
@@ -83,7 +87,7 @@
       },
       "nyx_blit" :
       {
-        "type"           : "NyxDrawBlit",
+        "type"      : "NyxDrawBlit",
         
         "subpass"   : 0,
         "width"     : 1280,
